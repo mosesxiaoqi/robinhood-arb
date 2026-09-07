@@ -22,7 +22,7 @@ pub struct StateView {
 #[derive(Debug, thiserror::Error)]
 #[error("invalid state transition: {0}")]
 pub struct StateError(pub &'static str);
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct State {
     view: StateView,
     last_batch: Option<BlockBatch>,
@@ -178,5 +178,27 @@ impl State {
         self.view = next;
         self.last_batch = Some(batch.clone());
         Ok(self.view())
+    }
+}
+
+impl State {
+    pub fn validate(&self) -> Result<(), crate::types::RecordError> {
+        Bootstrap {
+            version: 1,
+            position: self.view.position.clone(),
+            pools: self.view.pools.clone(),
+            evidence: vec![],
+        }
+        .validate()?;
+        if self
+            .last_batch
+            .as_ref()
+            .is_some_and(|b| b.position != self.view.position || b.raw_refs != self.view.raw_refs)
+        {
+            return Err(crate::types::RecordError(
+                "checkpoint state provenance mismatch",
+            ));
+        }
+        Ok(())
     }
 }

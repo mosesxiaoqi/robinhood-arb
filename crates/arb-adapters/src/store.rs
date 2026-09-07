@@ -28,6 +28,7 @@ impl Store {
             include_str!("migrations/002.sql"),
             include_str!("migrations/003.sql"),
             include_str!("migrations/004.sql"),
+            include_str!("migrations/005.sql"),
         ];
         if version as usize > migrations.len() {
             return Err(StoreError::Invalid("unsupported database version"));
@@ -246,5 +247,32 @@ impl Store {
         let snapshot: arb_core::protocol::Bootstrap = serde_json::from_slice(&bytes)?;
         snapshot.validate()?;
         Ok(snapshot)
+    }
+}
+
+impl Store {
+    pub fn save_checkpoint(
+        &mut self,
+        checkpoint: &arb_core::checkpoint::Checkpoint,
+    ) -> Result<u64, StoreError> {
+        checkpoint.validate()?;
+        let bytes = serde_json::to_vec(checkpoint)?;
+        if bytes.len() > 64 * 1024 * 1024 {
+            return Err(StoreError::Invalid("checkpoint exceeds storage budget"));
+        }
+        self.connection
+            .execute("INSERT INTO checkpoints(data) VALUES(?1)", params![bytes])?;
+        Ok(self.connection.last_insert_rowid() as u64)
+    }
+    pub fn load_checkpoint(&self, id: u64) -> Result<arb_core::checkpoint::Checkpoint, StoreError> {
+        let id = i64::try_from(id).map_err(|_| StoreError::Invalid("checkpoint id"))?;
+        let bytes: Vec<u8> = self.connection.query_row(
+            "SELECT data FROM checkpoints WHERE id=?1 AND length(data)<=67108864",
+            [id],
+            |r| r.get(0),
+        )?;
+        let checkpoint: arb_core::checkpoint::Checkpoint = serde_json::from_slice(&bytes)?;
+        checkpoint.validate()?;
+        Ok(checkpoint)
     }
 }

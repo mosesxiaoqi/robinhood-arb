@@ -331,10 +331,10 @@ assert_eq!(state_after_failed_batch, state_before_failed_batch);
 
 **接口：** 定义 `Checkpoint`；`save_checkpoint(&mut self, checkpoint: &Checkpoint) -> Result<(), StoreError>`；`load_checkpoint(&self, id: u64) -> Result<Checkpoint, StoreError>`。
 
-- [ ] 编写 `restore_checkpoint_exactly`：保存后重开数据库，状态、登记版本、配置引用和处理游标一致；格式版本不支持时明确失败。
-- [ ] 运行 `cargo test -p arb-adapters --test t14_checkpoint` 确认失败。
-- [ ] 一致保存恢复所需内容与处理游标，采集游标和处理游标分别命名；半写入不能成为可恢复检查点。
-- [ ] 同一测试通过；检查点后的输入重放不重新应用检查点已包含区块。
+- [x] 编写 `restore_checkpoint_exactly`：保存后重开数据库，状态、登记版本、配置引用和处理游标一致；格式版本不支持时明确失败。
+- [x] 运行 `cargo test -p arb-adapters --test t14_checkpoint` 确认失败。
+- [x] 一致保存恢复所需内容与处理游标，采集游标和处理游标分别命名；半写入不能成为可恢复检查点。
+- [x] 同一测试通过；检查点后的输入重放不重新应用检查点已包含区块。
 
 ```rust
 assert_eq!(restored, saved);
