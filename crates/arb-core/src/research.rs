@@ -66,6 +66,8 @@ pub struct RouteExclusions {
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DerivedBlock {
+    #[serde(default = "canonical_default")]
+    pub canonical: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub time_quality: Option<TimeQuality>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -91,4 +93,8 @@ pub struct StageTiming {
 pub struct TimeQuality {
     pub clock_regressions: usize,
     pub multiple_clock_domains: bool,
+}
+
+fn canonical_default() -> bool {
+    true
 }

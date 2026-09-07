@@ -16,10 +16,11 @@ pub enum PipelineError {
     Json(#[from] serde_json::Error),
 }
 pub struct Pipeline {
-    store: Store,
-    state: State,
-    run: RunSpec,
+    pub(crate) store: Store,
+    pub(crate) state: State,
+    pub(crate) run: RunSpec,
     time_quality: Option<arb_core::research::TimeQuality>,
+    pub(crate) paused: bool,
 }
 impl Pipeline {
     pub fn new(mut store: Store, state: State, run: RunSpec) -> Result<Self, PipelineError> {
@@ -27,15 +28,20 @@ impl Pipeline {
             .validate()
             .map_err(|_| PipelineError::Invalid("state"))?;
         store.register_run(&run)?;
+        let paused = store.has_pending_recovery(&run.run_id)?;
         Ok(Self {
             store,
             state,
             run,
             time_quality: None,
+            paused,
         })
     }
     pub fn set_time_quality(&mut self, quality: arb_core::research::TimeQuality) {
         self.time_quality = Some(quality);
+    }
+    pub fn is_paused(&self) -> bool {
+        self.paused
     }
     pub fn view(&self) -> StateView {
         self.state.view()
@@ -49,6 +55,11 @@ impl Pipeline {
         records: &[arb_core::types::RawRecord],
         observed_at: u64,
     ) -> Result<Vec<Opportunity>, PipelineError> {
+        if self.paused {
+            return Err(PipelineError::Invalid(
+                "recovery pending; publication paused",
+            ));
+        }
         let started = std::time::Instant::now();
         let pools = self
             .view()
@@ -66,6 +77,11 @@ impl Pipeline {
         batch: BlockBatch,
         observed_at: u64,
     ) -> Result<Vec<Opportunity>, PipelineError> {
+        if self.paused {
+            return Err(PipelineError::Invalid(
+                "recovery pending; publication paused",
+            ));
+        }
         self.process_timed(batch, observed_at, vec![])
     }
     fn timing(
@@ -91,7 +107,7 @@ impl Pipeline {
             elapsed_ns,
         })
     }
-    fn process_timed(
+    pub(crate) fn process_timed(
         &mut self,
         batch: BlockBatch,
         observed_at: u64,
@@ -110,7 +126,8 @@ impl Pipeline {
             .store
             .find_derived(&self.run.run_id, view.position.block_hash)?
         {
-            if existing.batch != batch
+            if !existing.canonical
+                || existing.batch != batch
                 || existing.view != view
                 || existing.candidates.iter().any(|c| !c.canonical)
             {
@@ -135,6 +152,7 @@ impl Pipeline {
             self.run.quote_asset,
         );
         let mut block = DerivedBlock {
+            canonical: true,
             time_quality: self.time_quality.clone(),
             timings,
             run_id: self.run.run_id.clone(),

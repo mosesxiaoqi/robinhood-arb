@@ -458,10 +458,10 @@ assert_eq!(status_at_20, ExecutionStatus::Succeeded);
 
 **接口：** `RecoveryPlan` 在 recovery 定义，包含恢复检查点、需补采区间与失效分支；app 执行恢复后复用 pipeline。
 
-- [ ] 编写 `reorg_matches_clean_branch`：原分支 A1→A2 被 A1→B2→B3 替换，恢复结果与从 A1 全新处理 B 分支一致。
-- [ ] 运行 `cargo test -p arb-app --test t21_reorg` 确认失败。
-- [ ] 查共同祖先与可用检查点；暂停发布受影响视图，事务标记旧候选/模拟失效，保留原始记录；无检查点则重新初始化。
-- [ ] 同一测试通过；恢复中再次退出能幂等继续，报告不能读取失效分支收益。
+- [x] 编写 `reorg_matches_clean_branch`：原分支 A1→A2 被 A1→B2→B3 替换，恢复结果与从 A1 全新处理 B 分支一致。
+- [x] 运行 `cargo test -p arb-app --test t21_reorg` 确认失败。
+- [x] 查共同祖先与可用检查点；暂停发布受影响视图，事务标记旧候选/模拟失效，保留原始记录；无检查点则重新初始化。
+- [x] 同一测试通过；恢复中再次退出能幂等继续，报告不能读取失效分支收益。
 
 ```rust
 assert_eq!(recovered_state, clean_branch_state);

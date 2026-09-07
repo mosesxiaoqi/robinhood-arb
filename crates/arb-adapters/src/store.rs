@@ -31,6 +31,7 @@ impl Store {
             include_str!("migrations/005.sql"),
             include_str!("migrations/006.sql"),
             include_str!("migrations/007.sql"),
+            include_str!("migrations/008.sql"),
         ];
         if version as usize > migrations.len() {
             return Err(StoreError::Invalid("unsupported database version"));
@@ -369,6 +370,7 @@ impl Store {
         let row:Option<(Vec<u8>,bool)>=self.connection.query_row("SELECT data,canonical FROM derived_blocks WHERE run_id=?1 AND block_hash=?2 AND length(data)<=67108864",params![run,hash.to_string()],|r|Ok((r.get(0)?,r.get(1)?))).optional()?;
         row.map(|(bytes, canonical)| {
             let mut block: arb_core::research::DerivedBlock = serde_json::from_slice(&bytes)?;
+            block.canonical = canonical;
             for candidate in &mut block.candidates {
                 candidate.canonical = canonical;
             }
@@ -421,5 +423,109 @@ impl Store {
         let run: arb_core::research::RunSpec = serde_json::from_slice(&bytes)?;
         run.validate()?;
         Ok(run)
+    }
+}
+
+impl Store {
+    pub fn read_checkpoints_before(
+        &self,
+        before: u64,
+    ) -> Result<Vec<(u64, arb_core::checkpoint::Checkpoint)>, StoreError> {
+        let before = i64::try_from(before).map_err(|_| StoreError::Invalid("checkpoint cursor"))?;
+        let mut statement = self.connection.prepare(
+            "SELECT id,data,length(data) FROM checkpoints WHERE id<?1 ORDER BY id DESC LIMIT 100",
+        )?;
+        let mut rows = statement.query([before])?;
+        let mut output = vec![];
+        let mut bytes = 0;
+        while let Some(row) = rows.next()? {
+            let size: i64 = row.get(2)?;
+            if size > 67108864 {
+                return Err(StoreError::Invalid("checkpoint budget"));
+            }
+            if bytes + size > 67108864 {
+                break;
+            }
+            bytes += size;
+            let data: Vec<u8> = row.get(1)?;
+            let checkpoint: arb_core::checkpoint::Checkpoint = serde_json::from_slice(&data)?;
+            checkpoint.validate()?;
+            output.push((row.get::<_, i64>(0)? as u64, checkpoint));
+        }
+        Ok(output)
+    }
+    pub fn has_pending_recovery(&self, run: &str) -> Result<bool, StoreError> {
+        Ok(self.connection.query_row(
+            "SELECT EXISTS(SELECT 1 FROM recovery_jobs WHERE run_id=?1 AND status='pending')",
+            [run],
+            |r| r.get(0),
+        )?)
+    }
+    pub fn begin_recovery(
+        &mut self,
+        id: alloy_primitives::B256,
+        run: &str,
+        data: &[u8],
+        orphans: &[alloy_primitives::B256],
+    ) -> Result<(), StoreError> {
+        if data.len() > 64 * 1024 * 1024 || orphans.len() > 4096 {
+            return Err(StoreError::Invalid("recovery budget"));
+        }
+        let tx = self.connection.transaction()?;
+        let prior: Option<(Vec<u8>, String)> = tx
+            .query_row(
+                "SELECT data,status FROM recovery_jobs WHERE id=?1",
+                [id.to_string()],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()?;
+        if let Some((existing, status)) = prior {
+            if existing != data {
+                return Err(StoreError::Invalid("recovery identity collision"));
+            }
+            if status == "complete" {
+                return Ok(());
+            }
+        } else {
+            let pending: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM recovery_jobs WHERE run_id=?1 AND status='pending')",
+                [run],
+                |r| r.get(0),
+            )?;
+            if pending {
+                return Err(StoreError::Invalid(
+                    "resume existing recovery before starting another",
+                ));
+            }
+            tx.execute(
+                "INSERT INTO recovery_jobs(id,run_id,data,status) VALUES(?1,?2,?3,'pending')",
+                params![id.to_string(), run, data],
+            )?;
+        }
+        for hash in orphans {
+            tx.execute(
+                "UPDATE derived_blocks SET canonical=0 WHERE run_id=?1 AND block_hash=?2",
+                params![run, hash.to_string()],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+    pub fn finish_recovery(&mut self, id: alloy_primitives::B256) -> Result<(), StoreError> {
+        if self.connection.execute(
+            "UPDATE recovery_jobs SET status='complete' WHERE id=?1",
+            [id.to_string()],
+        )? != 1
+        {
+            return Err(StoreError::Invalid("missing recovery job"));
+        }
+        Ok(())
+    }
+    pub fn recovery_data(&self, id: alloy_primitives::B256) -> Result<Vec<u8>, StoreError> {
+        Ok(self.connection.query_row(
+            "SELECT data FROM recovery_jobs WHERE id=?1 AND length(data)<=67108864",
+            [id.to_string()],
+            |r| r.get(0),
+        )?)
     }
 }
