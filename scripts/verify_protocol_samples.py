@@ -37,3 +37,32 @@ assert output - fees[1] - fees[2] == int(expected['net_output'])
 failed = json.loads((data / 'reverted-receipt.json').read_text())['receipt']
 assert failed['status'] == '0x0' and not failed['logs']
 print('T09: sample hashes, deployed code, swap arithmetic and separate fee rounding verified')
+
+reverse = json.loads((data / 'reverse-observations.json').read_text())
+expected = json.loads((data / 'reverse-expected.json').read_text())
+logs = reverse['requests'][0]['response']['result']
+swaps = [x for x in logs if x['topics'][0].startswith('0x40e9')]
+def log_words(log):
+    return [int(log['data'][i:i+64],16) for i in range(2,len(log['data']),64)]
+index = next(i for i,log in enumerate(swaps) if log['transactionHash']==expected['transaction_hash'])
+before, after = log_words(swaps[index-1]), log_words(swaps[index])
+assert before[2] == int(expected['sqrt_price_before'])
+assert before[3] == after[3] == int(expected['liquidity'])
+# Between initialization and the sampled sell there are no further liquidity edits.
+assert len([x for x in logs if x['topics'][0].startswith('0xf208')]) == 1
+amount = (1<<256)-after[1]
+next_price = before[2]+amount*q96//before[3]
+output = ((before[3]*q96*(next_price-before[2]))//next_price)//before[2]
+assert next_price == after[2] == int(expected['sqrt_price_after'])
+assert output == after[0] == int(expected['gross_output'])
+reverse_receipt = reverse['requests'][1]['response']['result']
+assert reverse_receipt['status']=='0x1'
+log = next(x for x in reverse_receipt['logs'] if x['logIndex']==swaps[index]['logIndex'])
+for key in ['address','topics','data','blockHash','blockNumber','transactionHash','transactionIndex','logIndex','removed']:
+    assert log[key]==swaps[index][key]
+fee_log = next(x for x in reverse_receipt['logs'] if x['topics'][0].startswith('0xc532'))
+fees = log_words(fee_log)
+assert fees[1] == output*100//10000 == int(expected['hook_fee'])
+assert fees[2] == output*200//10000 == int(expected['creator_tax'])
+assert output-fees[1]-fees[2] == int(expected['net_output'])
+print('T15: independent reverse swap state, output and fee rounding verified')

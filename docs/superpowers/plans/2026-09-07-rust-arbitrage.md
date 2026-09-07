@@ -350,10 +350,10 @@ assert_eq!(restored, saved);
 
 **接口：** 定义 `Quote`、`QuoteError`；`quote(pool: &PoolState, asset_in: Address, amount_in: U256) -> Result<Quote, QuoteError>`；整数与地址复用通用原语。
 
-- [ ] 编写 `match_verified_quote`：T09 独立预期值准确一致；零输入、空流动性、溢出和不支持税费/Hook 均有明确结果。
-- [ ] 运行 `cargo test -p arb-core --test t15_quote` 确认失败。
-- [ ] 只实现 T09 已核验公式与舍入，乘除使用足够宽的中间值；报价输出说明已包含的池手续费，避免下游重复扣除。
-- [ ] 同一测试通过；对两个方向分别核对真实样本，不引入通用 AMM 框架。
+- [x] 编写 `match_verified_quote`：T09 独立预期值准确一致；零输入、空流动性、溢出和不支持税费/Hook 均有明确结果。
+- [x] 运行 `cargo test -p arb-core --test t15_quote` 确认失败。
+- [x] 只实现 T09 已核验公式与舍入，乘除使用足够宽的中间值；报价输出说明已包含的池手续费，避免下游重复扣除。
+- [x] 同一测试通过；对两个方向分别核对真实样本，不引入通用 AMM 框架。
 
 ```rust
 assert_eq!(quote_result.amount_out, independently_verified_amount_out);

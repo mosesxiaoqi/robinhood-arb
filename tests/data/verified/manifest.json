@@ -14,6 +14,12 @@
     },
     "reverted-receipt.json": {
       "sha256": "1925ed74b102025c3c5944bb124d1b24f0c800145bef70ff61aa70796491e5bc"
+    },
+    "reverse-observations.json": {
+      "sha256": "5e9e6d24bf45801d2758c986b611125d80aa388478230eeee8c53ef1b6f45bcb"
+    },
+    "reverse-expected.json": {
+      "sha256": "ff77dfed6dd213d7c96c7b12af249a034abeb0491b499145118f53330372a0df"
     }
   },
   "source_rules": "All observations are actual public RPC responses. Expected values checked against receipt events. No fabricated pool or successful transaction."
