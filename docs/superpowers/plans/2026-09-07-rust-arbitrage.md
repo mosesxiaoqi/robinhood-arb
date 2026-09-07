@@ -313,10 +313,10 @@ assert!(partial_bootstrap.is_err());
 
 **接口：** 定义 `BlockBatch`、`StateView`、`StateError`；`State::apply_block(&mut self, batch: &BlockBatch) -> Result<StateView, StateError>`；`State::from_bootstrap(bootstrap: Bootstrap) -> State`。
 
-- [ ] 编写 `publish_only_complete_block`：完整连续块发布视图；缺日志范围、父哈希错误或中途事件错误时不部分提交；重复同块无重复更新。
-- [ ] 运行 `cargo test -p arb-core --test t13_state` 确认失败。
-- [ ] `BlockBatch` 携带头、覆盖范围和有序事件，app 在所有请求成功后才创建完整批；先在候选状态应用并校验，再原子替换内存状态。
-- [ ] 同一测试通过；无事件但已证明覆盖完整的池沿用状态，旧视图在新块到来后保持不变。
+- [x] 编写 `publish_only_complete_block`：完整连续块发布视图；缺日志范围、父哈希错误或中途事件错误时不部分提交；重复同块无重复更新。
+- [x] 运行 `cargo test -p arb-core --test t13_state` 确认失败。
+- [x] `BlockBatch` 携带头、覆盖范围和有序事件，app 在所有请求成功后才创建完整批；先在候选状态应用并校验，再原子替换内存状态。
+- [x] 同一测试通过；无事件但已证明覆盖完整的池沿用状态，旧视图在新块到来后保持不变。
 
 ```rust
 assert_eq!(old_view, saved_old_view);

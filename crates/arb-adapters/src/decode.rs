@@ -6,6 +6,7 @@ use arb_core::{
     types::{ExecutionStatus, Observation, PoolDescriptor, PoolEvent, RawRecord, RawRef},
 };
 sol! {
+ event ProtocolFeeUpdated(bytes32 indexed id,uint24 protocolFee);
  event Swap(bytes32 indexed id,address indexed sender,int128 amount0,int128 amount1,uint160 sqrtPriceX96,uint128 liquidity,int24 tick,uint24 fee);
  event ModifyLiquidity(bytes32 indexed id,address indexed sender,int24 tickLower,int24 tickUpper,int256 liquidityDelta,bytes32 salt);
  event HookFeeCollected(bytes32 indexed poolId,address currency,uint256 feeAmount,uint256 taxAmount);
@@ -38,6 +39,11 @@ pub fn decode(raw: &RawRecord, pool: &PoolDescriptor) -> Result<Vec<Observation>
                 liquidity: event.liquidity,
                 tick: event.tick.as_i32(),
                 lp_fee: event.fee.to(),
+            }
+        } else if log.address == manager && topic == Some(ProtocolFeeUpdated::SIGNATURE_HASH) {
+            let event: ProtocolFeeUpdated = log.event()?;
+            PoolEvent::ProtocolFeeUpdated {
+                fee: event.protocolFee.to(),
             }
         } else if log.address == manager && topic == Some(ModifyLiquidity::SIGNATURE_HASH) {
             let event: ModifyLiquidity = log.event()?;

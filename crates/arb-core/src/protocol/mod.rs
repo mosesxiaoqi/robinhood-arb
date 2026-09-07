@@ -48,7 +48,7 @@ impl Bootstrap {
             }
             let compressed = state.tick.div_euclid(p.tick_spacing);
             for word in [compressed.div_euclid(256), (compressed + 1).div_euclid(256)] {
-                if !state.tick_bitmap.contains_key(&(word as i16)) {
+                if p.is_quoteable() && !state.tick_bitmap.contains_key(&(word as i16)) {
                     return Err(RecordError("missing bootstrap bitmap"));
                 }
             }

@@ -118,6 +118,9 @@ pub struct RawRef {
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PoolEvent {
+    ProtocolFeeUpdated {
+        fee: u32,
+    },
     Initialized {
         sqrt_price_x96: alloy_primitives::U256,
         tick: i32,

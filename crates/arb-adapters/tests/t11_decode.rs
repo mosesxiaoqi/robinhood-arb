@@ -32,6 +32,27 @@ fn decode_verified_event() {
     value["result"][0]["logs"] = serde_json::json!([]);
     failed.payload = serde_json::to_vec(&value).unwrap();
     assert!(decode(&failed, &pool).unwrap().is_empty());
+    let mut fee_raw = raw.clone();
+    let mut value: Value = serde_json::from_slice(&fee_raw.payload).unwrap();
+    let mut log = value["result"][0]["logs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|l| l["topics"][0].as_str().unwrap().starts_with("0x40e9"))
+        .unwrap()
+        .clone();
+    let pool_id = log["topics"][1].clone();
+    log["topics"] = serde_json::json!([
+        alloy_primitives::keccak256("ProtocolFeeUpdated(bytes32,uint24)"),
+        pool_id
+    ]);
+    log["data"] = serde_json::json!(format!("0x{:064x}", 100));
+    value["result"][0]["logs"] = serde_json::json!([log]);
+    fee_raw.payload = serde_json::to_vec(&value).unwrap();
+    assert_eq!(
+        decode(&fee_raw, &pool).unwrap()[0].event,
+        PoolEvent::ProtocolFeeUpdated { fee: 100 }
+    );
     let mut feed = raw;
     feed.kind = "message".into();
     assert!(decode(&feed, &pool).unwrap().is_empty());
