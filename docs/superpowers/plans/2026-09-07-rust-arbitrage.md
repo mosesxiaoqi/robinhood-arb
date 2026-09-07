@@ -187,10 +187,10 @@ assert_eq!(count_after, count_before);
 
 **接口：** `read_raw_after(&self, id: u64, limit: usize) -> Result<Vec<StoredRaw>, StoreError>`；`StoredRaw` 在 store 模块定义为数据库 ID 与 `RawRecord`。
 
-- [ ] 编写 `paginate_without_skip`：保存三条记录、每页两条，遍历恰好得到三条；重开数据库后顺序不变。
-- [ ] 运行 `cargo test -p arb-adapters --test t06_read_raw` 确认失败。
-- [ ] 按持久化 ID 进行游标分页，限制单页数量；同时提供按网络和来源过滤，禁止整库无界加载。
-- [ ] 同一测试通过；读取损坏版本返回显式错误，不跳过坏记录继续宣称完整。
+- [x] 编写 `paginate_without_skip`：保存三条记录、每页两条，遍历恰好得到三条；重开数据库后顺序不变。
+- [x] 运行 `cargo test -p arb-adapters --test t06_read_raw` 确认失败。
+- [x] 按持久化 ID 进行游标分页，限制单页数量；同时提供按网络和来源过滤，禁止整库无界加载。
+- [x] 同一测试通过；读取损坏版本返回显式错误，不跳过坏记录继续宣称完整。
 
 ```rust
 assert_eq!(ids, vec![1, 2, 3]);

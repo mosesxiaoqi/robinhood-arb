@@ -110,3 +110,53 @@ impl Store {
             .query_row("SELECT count(*) FROM raw_records", [], |r| r.get(0))?)
     }
 }
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct StoredRaw {
+    pub id: u64,
+    pub record: RawRecord,
+}
+impl Store {
+    pub fn read_raw_after(&self, id: u64, limit: usize) -> Result<Vec<StoredRaw>, StoreError> {
+        self.read_raw_filtered_after(id, limit, None, None)
+    }
+    pub fn read_raw_filtered_after(
+        &self,
+        id: u64,
+        limit: usize,
+        chain: Option<u64>,
+        source: Option<&str>,
+    ) -> Result<Vec<StoredRaw>, StoreError> {
+        if !(1..=1000).contains(&limit) {
+            return Err(StoreError::Invalid("page limit must be 1..1000"));
+        }
+        let id =
+            i64::try_from(id).map_err(|_| StoreError::Invalid("record id exceeds SQLite range"))?;
+        let mut statement=self.connection.prepare("SELECT id,data,length(data) FROM raw_records WHERE id>?1 AND (?2 IS NULL OR chain_id=?2) AND (?3 IS NULL OR source=?3) ORDER BY id LIMIT ?4")?;
+        let mut rows = statement.query(params![
+            id,
+            chain.map(|n| n.to_string()),
+            source,
+            limit as i64
+        ])?;
+        let mut result = Vec::new();
+        let mut bytes = 0;
+        while let Some(row) = rows.next()? {
+            let size: i64 = row.get(2)?;
+            if size > 64 * 1024 * 1024 {
+                return Err(StoreError::Invalid("stored record exceeds read budget"));
+            }
+            if bytes + size > 64 * 1024 * 1024 {
+                break;
+            }
+            let data: Vec<u8> = row.get(1)?;
+            let record: RawRecord = serde_json::from_slice(&data)?;
+            record.validate()?;
+            let id: i64 = row.get(0)?;
+            let id = u64::try_from(id).map_err(|_| StoreError::Invalid("negative record id"))?;
+            result.push(StoredRaw { id, record });
+            bytes += size;
+        }
+        Ok(result)
+    }
+}
