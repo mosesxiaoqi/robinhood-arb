@@ -115,10 +115,10 @@ curl --fail-with-body "$ARB_RPC_URL" -H 'content-type: application/json' \
 
 **接口：** `Config::parse(text: &str) -> Result<Config, ConfigError>`；CLI `check-config --config <path>`。
 
-- [ ] 编写 `reject_invalid_config`：空金额列表、零队列容量、非法端点和缺失链 ID 均拒绝；金额以十进制字符串读取，不先转浮点。
-- [ ] 运行 `cargo test -p arb-app --test t02_config` 确认失败，随后创建最小 workspace，锁定核验过的稳定工具链与依赖版本。
-- [ ] 实现配置解析与启动校验，字段包含端点、链 ID、报价资产、金额、深度/收益阈值、确认策略、限流/重试、队列、数据库、窗口和磁盘预算；示例配置明确为离线示例，真实采集须 T01 配置。
-- [ ] 同一测试通过；合法配置返回成功，未知字段和无效组合返回字段级错误。敏感端点不原样输出。
+- [x] 编写 `reject_invalid_config`：空金额列表、零队列容量、非法端点和缺失链 ID 均拒绝；金额以十进制字符串读取，不先转浮点。
+- [x] 运行 `cargo test -p arb-app --test t02_config` 确认失败，随后创建最小 workspace，锁定核验过的稳定工具链与依赖版本。
+- [x] 实现配置解析与启动校验，字段包含端点、链 ID、报价资产、金额、深度/收益阈值、确认策略、限流/重试、队列、数据库、窗口和磁盘预算；示例配置明确为离线示例，真实采集须 T01 配置。
+- [x] 同一测试通过；合法配置返回成功，未知字段和无效组合返回字段级错误。敏感端点不原样输出。
 
 ```rust
 assert!(Config::parse("queue_capacity = 0").is_err());
