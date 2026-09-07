@@ -545,13 +545,20 @@ impl Store {
         Ok(())
     }
     pub fn finish_recovery(&mut self, id: alloy_primitives::B256) -> Result<(), StoreError> {
-        if self.connection.execute(
+        let tx = self
+            .connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let run: String = tx.query_row(
+            "SELECT run_id FROM recovery_jobs WHERE id=?1",
+            [id.to_string()],
+            |r| r.get(0),
+        )?;
+        refresh_canonical_simulations(&tx, &run)?;
+        tx.execute(
             "UPDATE recovery_jobs SET status='complete' WHERE id=?1",
             [id.to_string()],
-        )? != 1
-        {
-            return Err(StoreError::Invalid("missing recovery job"));
-        }
+        )?;
+        tx.commit()?;
         Ok(())
     }
     pub fn recovery_data(&self, id: alloy_primitives::B256) -> Result<Vec<u8>, StoreError> {
@@ -821,22 +828,26 @@ impl Store {
         table: ReportTable,
         run: &str,
         after: u64,
+        from: u64,
+        to: u64,
     ) -> Result<Vec<(u64, serde_json::Value)>, StoreError> {
         let sql = match table {
             ReportTable::Blocks => {
-                "SELECT id,data,length(data),canonical,0 FROM derived_blocks WHERE run_id=?1 AND id>?2 ORDER BY id LIMIT 100"
+                "SELECT id,data,length(data),canonical,0 FROM derived_blocks WHERE run_id=?1 AND id>?2 AND CAST(block_number AS INTEGER) BETWEEN ?3 AND ?4 ORDER BY id LIMIT 100"
             }
             ReportTable::Simulations => {
-                "SELECT id,data,length(data),canonical,validates_original FROM simulations WHERE run_id=?1 AND id>?2 ORDER BY id LIMIT 100"
+                "SELECT id,data,length(data),canonical,validates_original FROM simulations WHERE run_id=?1 AND id>?2 AND json_extract(CAST(data AS TEXT),'$.expected_position.block_number') BETWEEN ?3 AND ?4 ORDER BY id LIMIT 100"
             }
             ReportTable::Wallets => {
-                "SELECT id,data,length(data),0,0 FROM wallet_facts WHERE run_id=?1 AND id>?2 ORDER BY id LIMIT 100"
+                "SELECT id,data,length(data),0,0 FROM wallet_facts WHERE run_id=?1 AND id>?2 AND json_extract(CAST(data AS TEXT),'$.position.block_number') BETWEEN ?3 AND ?4 ORDER BY id LIMIT 100"
             }
         };
         let mut statement = self.connection.prepare(sql)?;
         let mut rows = statement.query(params![
             run,
-            i64::try_from(after).map_err(|_| StoreError::Invalid("report cursor"))?
+            i64::try_from(after).map_err(|_| StoreError::Invalid("report cursor"))?,
+            i64::try_from(from).map_err(|_| StoreError::Invalid("report range"))?,
+            i64::try_from(to).map_err(|_| StoreError::Invalid("report range"))?
         ])?;
         let mut output = vec![];
         let mut bytes = 0;
@@ -944,6 +955,7 @@ impl Store {
             };
             tx.execute("INSERT INTO source_cursors(chain_id,source,data) VALUES(?1,'rpc',?2) ON CONFLICT(chain_id,source) DO UPDATE SET data=excluded.data",params![cursor.chain_id.to_string(),serde_json::to_vec(&cursor)?])?;
             tx.execute("UPDATE ingest_gaps SET resolved=1 WHERE chain_id=?1 AND source='rpc' AND block_number=?2",params![cursor.chain_id.to_string(),view.position.block_number.to_string()])?;
+            refresh_canonical_simulations(&tx, run)?;
             tx.execute(
                 "UPDATE recovery_jobs SET status='complete' WHERE id=?1",
                 [recovery.to_string()],
@@ -999,4 +1011,66 @@ impl Store {
                 r.get::<_, i64>(0)
             })? as u64)
     }
+}
+
+impl Store {
+    pub fn reactivate_derived(
+        &mut self,
+        run: &str,
+        hash: alloy_primitives::B256,
+    ) -> Result<(), StoreError> {
+        if !self.has_pending_recovery(run)? {
+            return Err(StoreError::Invalid("reactivation requires recovery"));
+        }
+        if self.connection.execute(
+            "UPDATE derived_blocks SET canonical=1 WHERE run_id=?1 AND block_hash=?2",
+            params![run, hash.to_string()],
+        )? != 1
+        {
+            return Err(StoreError::Invalid("reactivation block missing"));
+        }
+        Ok(())
+    }
+}
+fn refresh_canonical_simulations(
+    tx: &rusqlite::Transaction<'_>,
+    run: &str,
+) -> Result<(), StoreError> {
+    let mut after = 0i64;
+    loop {
+        let records = {
+            let mut query=tx.prepare("SELECT s.id,s.data,d.data FROM simulations s JOIN derived_blocks d ON s.run_id=d.run_id AND s.block_hash=d.block_hash WHERE s.run_id=?1 AND s.id>?2 AND s.canonical=0 AND d.canonical=1 ORDER BY s.id LIMIT 1")?;
+            query
+                .query_map(params![run, after], |r| {
+                    Ok((
+                        r.get::<_, i64>(0)?,
+                        r.get::<_, Vec<u8>>(1)?,
+                        r.get::<_, Vec<u8>>(2)?,
+                    ))
+                })?
+                .collect::<Result<Vec<_>, _>>()?
+        };
+        let Some((id, bytes, derived)) = records.into_iter().next() else {
+            break;
+        };
+        after = id;
+        let record: arb_core::simulation::SimulationRecord = serde_json::from_slice(&bytes)?;
+        let block: arb_core::research::DerivedBlock = serde_json::from_slice(&derived)?;
+        if let Some(mut candidate) = block
+            .candidates
+            .into_iter()
+            .find(|c| c.id == record.candidate_id && c.view_id == record.view_id)
+        {
+            candidate.canonical = true;
+            let validates = record
+                .result
+                .as_ref()
+                .is_some_and(|r| arb_core::simulation::validates_candidate(&candidate, r));
+            tx.execute(
+                "UPDATE simulations SET canonical=1,validates_original=?1 WHERE id=?2",
+                params![validates, id],
+            )?;
+        }
+    }
+    Ok(())
 }

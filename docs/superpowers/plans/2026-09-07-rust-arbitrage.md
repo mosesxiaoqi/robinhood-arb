@@ -598,7 +598,7 @@ assert!(!incomplete_facts_attribution.complete);
 
 **接口：** CLI `report --config <path> --run <id> --out <directory>`；research 向 `std::io::Write` 输出 Markdown 与 CSV，app 负责文件路径和读取。
 
-实现限制：可用 `--from/--to` 选择最多 10,000 块窗口；分页扫描最多 100,000 行，选中序列化数据最多 64 MiB，超限显式失败。导出固定 WAL 只读快照；完成文件放入临时目录后原子重命名到全新输出目录，已有报告不覆盖。CSV 保留各模拟候选关联、时刻和单调耗时；孤块钱包事实不进入有效报告。
+实现限制：可用 `--from/--to` 选择最多 10,000 块窗口；窗口内分页读取最多 100,000 行，选中序列化数据最多 64 MiB，超限显式失败。导出固定 WAL 只读快照；完成文件放入临时目录后原子重命名到全新输出目录，已有报告不覆盖。CSV 保留各模拟候选关联、时刻和单调耗时；孤块钱包事实不进入有效报告。
 
 - [x] 编写 `report_preserves_unknown_and_coverage`：零机会、模拟不可用、数据缺口都可导出；包含逗号/引号的文本符合 CSV 转义。
 - [x] 运行 `cargo test -p arb-app --test t28_report` 确认失败。
@@ -630,7 +630,7 @@ assert_eq!(durable_cursor_after_shutdown, last_committed_cursor);
 assert_eq!(deleted_raw_records, 0);
 ```
 
-### T30 — Linux 部署与端到端只读验收
+### T30 — Linux/macOS 支持与端到端只读验收
 
 **依赖：** T01–T29 全部适用任务；任何不可用项必须在验收结论列明，不以跳过冒充完成。
 
@@ -638,10 +638,10 @@ assert_eq!(deleted_raw_records, 0);
 
 **接口：** 一个 release 二进制，由 systemd 使用显式配置和工作目录运行；不要求开发者桌面具备 systemd。
 
-- [ ] 编写 `collect_replay_report_roundtrip`：有限输入完成采集落盘、状态初始化、候选、模拟样本关联、重放和报告；注入一次重启和重组后核心结果仍一致。
-- [ ] 运行 `cargo test -p arb-app --test t30_end_to_end` 确认目标缺口，再补齐部署和串联问题，不重写各模块。
-- [ ] 按用户后续确认调整为 Linux/macOS 双平台交付：提供 Linux unit、两平台构建测试配置与运行说明；本机执行 macOS 验证，未运行的 Linux CI 如实列明，不自动安装或启动服务。
-- [ ] 完成下列全局检查，记录有限真实观察窗口的处理延迟、数据覆盖、磁盘增长与实际模拟能力。没有盈利机会也能通过工程验收；真实执行成功率始终不在验收项中。
+- [x] 编写 `collect_replay_report_roundtrip`：有限输入完成采集落盘、状态初始化、候选、模拟样本关联、重放和报告；注入一次重启和重组后核心结果仍一致。
+- [x] 运行 `cargo test -p arb-app --test t30_end_to_end` 确认目标缺口，再补齐部署和串联问题，不重写各模块。
+- [x] 按用户后续确认调整为 Linux/macOS 双平台交付：提供 Linux unit、两平台构建测试配置与运行说明；本机执行 macOS 验证，未运行的 Linux CI 如实列明，不自动安装或启动服务。
+- [x] 完成下列全局检查，记录有限真实观察窗口的处理延迟、数据覆盖、磁盘增长与实际模拟能力。没有盈利机会也能通过工程验收；真实执行成功率始终不在验收项中。
 
 ```sh
 cargo fmt --all -- --check
@@ -667,7 +667,7 @@ systemd-analyze verify deploy/robinhood-arb.service
 | Feed 不等于成功、缺口可见 | T25 | 序号缺口、未知状态与接入能力证据 |
 | 机会容量、持续时间、失败样本 | T26、T28 | 采样口径、覆盖及未知项报告 |
 | 钱包归因与净资产变化证据 | T27、T28 | 入出金/LP/赠币/路由/多腿样例，未知保留 |
-| 预算、退出、部署 | T29、T30 | 停止不丢游标、Linux 验收与资源实测 |
+| 预算、退出、部署 | T29、T30 | 停止不丢游标、双平台 CI、本机验收与资源实测 |
 
 每个里程碑可以单独交付，但不得把部分交付命名为整个项目完成。真实协议、Feed 或模拟后端不可用时，记录受影响任务及可继续部分；不通过放宽正确性条件消除阻塞。
 

@@ -36,7 +36,7 @@ pub fn write_report(
 ) -> io::Result<()> {
     writeln!(
         markdown,
-        "# 只读模拟，非真实成交\n\n运行：{}\n\n覆盖区间：{}–{}；完整块 {}；数据缺口 {}；孤块 {}。\n\nRPC 未解决缺口记录 {}；本库该网络 Feed 历史观测缺口区间 {}（非运行窗口计数）。\n",
+        "# 只读模拟，非真实成交\n\n运行：{}\n\n覆盖区间：{}–{}；完整分析视图 {}；分析数据缺口 {}；孤块 {}。\n\nRPC 未解决缺口记录 {}；本库该网络 Feed 历史观测缺口区间 {}（非运行窗口计数）。\n",
         safe(&run.run_id),
         analysis.from,
         analysis.to,
@@ -68,7 +68,7 @@ pub fn write_report(
     )?;
     writeln!(
         markdown,
-        "## 机会与容量\n\n机会区间 {}；代币×完整块样本 {}（含失败币）；排除池×块 {}。容量仅为最大已测试有效金额，不做连续容量插值，不跨报价资产相加。模拟容量沿用候选成本估计，不是实际成交收益。\n",
+        "## 机会与容量\n\n机会区间 {}；代币×完整块样本 {}（含已登记失败币，分母不代表全链代币）；排除池×块 {}。容量仅为最大已测试有效金额，不做连续容量插值，不跨报价资产相加。模拟容量沿用候选成本估计，不是实际成交收益。\n",
         analysis.windows.len(),
         analysis.token_block_samples,
         analysis.excluded_pool_samples

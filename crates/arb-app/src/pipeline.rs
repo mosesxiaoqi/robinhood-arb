@@ -126,14 +126,34 @@ impl Pipeline {
             .store
             .find_derived(&self.run.run_id, view.position.block_hash)?
         {
-            if !existing.canonical
-                || existing.batch != batch
-                || existing.view != view
-                || existing.candidates.iter().any(|c| !c.canonical)
+            let mut comparable = batch.clone();
+            comparable.raw_refs = existing.batch.raw_refs.clone();
+            for (observation, prior) in comparable
+                .observations
+                .iter_mut()
+                .zip(&existing.batch.observations)
+            {
+                observation.raw_ref = prior.raw_ref.clone();
+            }
+            if existing.batch != comparable
+                || existing.view.pools != view.pools
+                || existing.view.position != view.position
             {
                 return Err(PipelineError::Invalid("processed block conflict"));
             }
-            self.state = next;
+            // Reuse the original valid provenance/candidate identity when the same chain block returns.
+            let mut stored_next = self.state.clone();
+            if stored_next.apply_block(&existing.batch)? != existing.view {
+                return Err(PipelineError::Invalid("stored view conflict"));
+            }
+            if !existing.canonical {
+                if !self.paused || !self.store.has_pending_recovery(&self.run.run_id)? {
+                    return Err(PipelineError::Invalid("orphan requires active recovery"));
+                }
+                self.store
+                    .reactivate_derived(&self.run.run_id, view.position.block_hash)?;
+            }
+            self.state = stored_next;
             return Ok(existing
                 .candidates
                 .into_iter()

@@ -215,6 +215,20 @@ async fn timeout_does_not_block_state() {
     assert!(late.result.is_some());
     assert!(!late.canonical);
     assert!(!late.validates_original_candidate);
+    // A later reorg can restore this exact block and its original simulation.
+    let recovery = B256::repeat_byte(91);
+    store
+        .begin_recovery(recovery, "live", b"return", &[])
+        .unwrap();
+    store
+        .reactivate_derived("live", B256::repeat_byte(2))
+        .unwrap();
+    assert!(!store.load_simulation(record.id).unwrap().canonical);
+    store.finish_recovery(recovery).unwrap();
+    let restored = store.load_simulation(record.id).unwrap();
+    assert!(restored.canonical);
+    assert!(restored.validates_original_candidate);
+    assert_eq!(restored.result, late.result);
 }
 #[test]
 fn mismatched_state_does_not_validate_candidate() {

@@ -50,7 +50,7 @@ pub fn export_report(
         let mut after = 0;
         loop {
             let page = store
-                .read_report_page(table, run_id, after)
+                .read_report_page(table, run_id, after, from, to)
                 .map_err(error)?;
             if page.is_empty() {
                 break;

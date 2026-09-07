@@ -31,17 +31,60 @@ impl RecoveryPlan {
             block_hash: first.parent_hash,
             offset: Offset::BlockEnd,
         };
+        // Select the nearest still-canonical checkpoint before walking the old branch.
+        // The lookback bound applies to recovery depth, not the lifetime of this run.
+        let mut cursor = i64::MAX as u64;
+        let mut selected = None;
+        'checkpoints: loop {
+            let page = pipeline.store.read_checkpoints_before(cursor)?;
+            if page.is_empty() {
+                break;
+            }
+            for (id, checkpoint) in page {
+                cursor = id;
+                let p = checkpoint.state.view().position;
+                if p.block_number > ancestor.block_number
+                    || checkpoint.config_hash != pipeline.run.config_hash
+                    || checkpoint.algorithm_version != pipeline.run.algorithm_version
+                    || checkpoint.registry_version != pipeline.run.registry_version
+                    || checkpoint.research_run_id.as_deref() != Some(&pipeline.run.run_id)
+                    || selected.as_ref().is_some_and(
+                        |(_, prior): &(u64, arb_core::checkpoint::Checkpoint)| {
+                            prior.state.view().position.block_number >= p.block_number
+                        },
+                    )
+                {
+                    continue;
+                }
+                if pipeline
+                    .store
+                    .find_derived(&pipeline.run.run_id, p.block_hash)?
+                    .is_some_and(|b| !b.canonical)
+                {
+                    continue;
+                }
+                selected = Some((id, checkpoint));
+                if p == ancestor {
+                    break 'checkpoints;
+                }
+            }
+        }
+        let (checkpoint_id, checkpoint) = selected.ok_or(PipelineError::Invalid(
+            "no common checkpoint; reinitialize at a verified block",
+        ))?;
         let mut path = BTreeMap::new();
         let mut at = pipeline.view().position;
         let mut positions = BTreeMap::from([(at.block_number, at.block_hash)]);
-        while let Some(block) = pipeline
-            .store
-            .find_derived(&pipeline.run.run_id, at.block_hash)?
-        {
+        while at.block_number > checkpoint.state.view().position.block_number {
             if path.len() >= 4096 {
-                return Err(PipelineError::Invalid(
-                    "recovery lookback exceeds 4096 blocks",
-                ));
+                return Err(PipelineError::Invalid("recovery depth exceeds 4096 blocks"));
+            }
+            let block = pipeline
+                .store
+                .find_derived(&pipeline.run.run_id, at.block_hash)?
+                .ok_or(PipelineError::Invalid("common history missing"))?;
+            if block.view.position != at {
+                return Err(PipelineError::Invalid("stored branch identity"));
             }
             let parent = ChainPosition {
                 block_number: at
@@ -51,47 +94,17 @@ impl RecoveryPlan {
                 block_hash: block.batch.parent_hash,
                 offset: Offset::BlockEnd,
             };
-            if block.view.position != at {
-                return Err(PipelineError::Invalid("stored branch identity"));
-            }
             path.insert(at.block_number, block.batch);
             at = parent;
             positions.insert(at.block_number, at.block_hash);
         }
-        if positions.get(&ancestor.block_number) != Some(&ancestor.block_hash) {
+        if positions.get(&ancestor.block_number) != Some(&ancestor.block_hash)
+            || at != checkpoint.state.view().position
+        {
             return Err(PipelineError::Invalid(
-                "common ancestor not present; more history required",
+                "common ancestor/checkpoint not on stored branch",
             ));
         }
-        let mut cursor = i64::MAX as u64;
-        let mut selected = None;
-        loop {
-            let page = pipeline.store.read_checkpoints_before(cursor)?;
-            if page.is_empty() {
-                break;
-            }
-            for (id, checkpoint) in page {
-                cursor = id;
-                let p = checkpoint.state.view().position;
-                if p.block_number <= ancestor.block_number
-                    && positions.get(&p.block_number) == Some(&p.block_hash)
-                    && checkpoint.config_hash == pipeline.run.config_hash
-                    && checkpoint.algorithm_version == pipeline.run.algorithm_version
-                    && checkpoint.registry_version == pipeline.run.registry_version
-                    && checkpoint.research_run_id.as_deref() == Some(&pipeline.run.run_id)
-                    && selected.as_ref().is_none_or(
-                        |(_, prior): &(u64, arb_core::checkpoint::Checkpoint)| {
-                            prior.state.view().position.block_number < p.block_number
-                        },
-                    )
-                {
-                    selected = Some((id, checkpoint));
-                }
-            }
-        }
-        let (checkpoint_id, checkpoint) = selected.ok_or(PipelineError::Invalid(
-            "no common checkpoint; reinitialize at a verified block",
-        ))?;
         let base = checkpoint.state.view().position.block_number;
         let mut replay_blocks = path
             .iter()

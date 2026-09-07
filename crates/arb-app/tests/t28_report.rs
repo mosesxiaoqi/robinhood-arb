@@ -87,6 +87,15 @@ fn report_preserves_unknown_and_coverage() {
         .is_err()
     );
     assert_eq!(std::fs::read(&file_parent).unwrap(), b"existing");
+    let sql = rusqlite::Connection::open(&database).unwrap();
+    sql.execute_batch("WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<100001) INSERT INTO wallet_facts(run_id,transaction_hash,wallet,block_hash,data) SELECT 'zero,' || char(34) || 'quoted' || char(34),CAST(x AS TEXT),'fixture','old',CAST('{\"position\":{\"block_number\":1}}' AS BLOB) FROM n;").unwrap();
+    export_report(
+        &database,
+        &run.run_id,
+        &dir.path().join("small-window"),
+        Some((10, 12)),
+    )
+    .unwrap();
     store
         .begin_recovery(B256::repeat_byte(8), &run.run_id, b"pending", &[])
         .unwrap();
