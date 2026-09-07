@@ -8,6 +8,8 @@ pub struct ProcessingCursor {
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Checkpoint {
+    #[serde(default)]
+    pub research_run_id: Option<String>,
     pub version: u32,
     pub state: State,
     pub registry_version: u64,

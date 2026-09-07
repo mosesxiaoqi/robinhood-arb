@@ -9,6 +9,7 @@ fn restore_checkpoint_exactly() {
     let path = dir.path().join("checkpoints.db");
     let mut store = Store::open(&path).unwrap();
     let saved = Checkpoint {
+        research_run_id: None,
         version: 1,
         state: State::from_bootstrap(support::bootstrap()).unwrap(),
         registry_version: 1,

@@ -189,81 +189,12 @@ impl RpcSource {
         let block = self
             .request("eth_getBlockByNumber", json!([tag, false]))
             .await?;
-        if quantity(&block.value["number"])? != number {
-            return Err(SourceError::Invalid("block number mismatch"));
-        }
         let block_hash = hash(&block.value["hash"])?;
-        hash(&block.value["parentHash"])?;
-        let transactions = block.value["transactions"]
-            .as_array()
-            .ok_or(SourceError::Invalid("transaction list"))?;
-        let mut hashes = BTreeSet::new();
-        for tx in transactions {
-            if !hashes.insert(hash(tx)?) {
-                return Err(SourceError::Invalid("duplicate transaction"));
-            }
-        }
         let receipts = self.request("eth_getBlockReceipts", json!([tag])).await?;
-        let items = receipts
-            .value
-            .as_array()
-            .ok_or(SourceError::Invalid("receipt list"))?;
-        if items.len() != transactions.len() {
-            return Err(SourceError::Invalid("incomplete receipts"));
-        }
-        let mut seen = BTreeSet::new();
-        let mut receipt_logs = Vec::new();
-        for receipt in items {
-            if hash(&receipt["blockHash"])? != block_hash
-                || quantity(&receipt["blockNumber"])? != number
-            {
-                return Err(SourceError::Invalid("receipt block mismatch"));
-            }
-            let tx_hash = hash(&receipt["transactionHash"])?;
-            let index = usize::try_from(quantity(&receipt["transactionIndex"])?)
-                .map_err(|_| SourceError::Invalid("transaction index"))?;
-            if !seen.insert(tx_hash)
-                || transactions.get(index).and_then(Value::as_str)
-                    != receipt["transactionHash"].as_str()
-            {
-                return Err(SourceError::Invalid("receipt transaction mismatch"));
-            }
-            let status = quantity(&receipt["status"])?;
-            if status > 1 {
-                return Err(SourceError::Invalid("receipt status"));
-            }
-            let logs = receipt["logs"]
-                .as_array()
-                .ok_or(SourceError::Invalid("receipt logs"))?;
-            if status == 0 && !logs.is_empty() {
-                return Err(SourceError::Invalid("reverted receipt contains logs"));
-            }
-            for log in logs {
-                if hash(&log["blockHash"])? != block_hash
-                    || hash(&log["transactionHash"])? != tx_hash
-                    || quantity(&log["transactionIndex"])? != index as u64
-                    || log["removed"] != false
-                {
-                    return Err(SourceError::Invalid("log identity"));
-                }
-                receipt_logs.push(log.to_string());
-            }
-        }
         let logs = self
             .request("eth_getLogs", json!([{"blockHash":block_hash}]))
             .await?;
-        let mut queried_logs = logs
-            .value
-            .as_array()
-            .ok_or(SourceError::Invalid("log list"))?
-            .iter()
-            .map(Value::to_string)
-            .collect::<Vec<_>>();
-        queried_logs.sort();
-        receipt_logs.sort();
-        if queried_logs != receipt_logs {
-            return Err(SourceError::Invalid("logs and receipts disagree"));
-        }
+        validate_block(&block.value, &receipts.value, &logs.value, number)?;
         let end = self
             .request("eth_getBlockByNumber", json!([tag, false]))
             .await?;
@@ -300,14 +231,14 @@ impl RpcSource {
         Ok(result)
     }
 }
-fn quantity(value: &Value) -> Result<u64, SourceError> {
+pub(crate) fn quantity(value: &Value) -> Result<u64, SourceError> {
     let text = value
         .as_str()
         .and_then(|v| v.strip_prefix("0x"))
         .ok_or(SourceError::Invalid("hex quantity"))?;
     u64::from_str_radix(text, 16).map_err(|_| SourceError::Invalid("hex quantity"))
 }
-fn hash(value: &Value) -> Result<B256, SourceError> {
+pub(crate) fn hash(value: &Value) -> Result<B256, SourceError> {
     B256::from_str(value.as_str().ok_or(SourceError::Invalid("hash"))?)
         .map_err(|_| SourceError::Invalid("hash"))
 }
@@ -339,4 +270,96 @@ impl RpcSource {
         evidence.push(entry);
         Ok(reply.value)
     }
+}
+
+pub(crate) fn validate_block(
+    block: &Value,
+    receipts: &Value,
+    logs: &Value,
+    number: u64,
+) -> Result<B256, SourceError> {
+    if quantity(&block["number"])? != number {
+        return Err(SourceError::Invalid("block number mismatch"));
+    }
+    let block_hash = hash(&block["hash"])?;
+    hash(&block["parentHash"])?;
+    let transactions = block["transactions"]
+        .as_array()
+        .ok_or(SourceError::Invalid("transaction list"))?;
+    let mut hashes = BTreeSet::new();
+    for tx in transactions {
+        if !hashes.insert(hash(tx)?) {
+            return Err(SourceError::Invalid("duplicate transaction"));
+        }
+    }
+    let items = receipts
+        .as_array()
+        .ok_or(SourceError::Invalid("receipt list"))?;
+    if items.len() != transactions.len() {
+        return Err(SourceError::Invalid("incomplete receipts"));
+    }
+    let mut seen = BTreeSet::new();
+    let mut receipt_logs = Vec::new();
+    let mut log_indices = BTreeSet::new();
+    for receipt in items {
+        if hash(&receipt["blockHash"])? != block_hash
+            || quantity(&receipt["blockNumber"])? != number
+        {
+            return Err(SourceError::Invalid("receipt block mismatch"));
+        }
+        let tx_hash = hash(&receipt["transactionHash"])?;
+        let index = usize::try_from(quantity(&receipt["transactionIndex"])?)
+            .map_err(|_| SourceError::Invalid("transaction index"))?;
+        if !seen.insert(tx_hash)
+            || transactions.get(index).and_then(Value::as_str)
+                != receipt["transactionHash"].as_str()
+        {
+            return Err(SourceError::Invalid("receipt transaction mismatch"));
+        }
+        let status = quantity(&receipt["status"])?;
+        if status > 1 {
+            return Err(SourceError::Invalid("receipt status"));
+        }
+        let logs = receipt["logs"]
+            .as_array()
+            .ok_or(SourceError::Invalid("receipt logs"))?;
+        if status == 0 && !logs.is_empty() {
+            return Err(SourceError::Invalid("reverted receipt contains logs"));
+        }
+        for log in logs {
+            if hash(&log["blockHash"])? != block_hash
+                || hash(&log["transactionHash"])? != tx_hash
+                || quantity(&log["transactionIndex"])? != index as u64
+                || quantity(&log["blockNumber"])? != number
+                || log["removed"] != false
+            {
+                return Err(SourceError::Invalid("log identity"));
+            }
+            if !log_indices.insert(quantity(&log["logIndex"])?) {
+                return Err(SourceError::Invalid("duplicate log index"));
+            }
+            receipt_logs.push(normalize_log(log)?);
+        }
+    }
+    let mut queried_logs = logs
+        .as_array()
+        .ok_or(SourceError::Invalid("log list"))?
+        .iter()
+        .map(normalize_log)
+        .collect::<Result<Vec<_>, _>>()?;
+    queried_logs.sort();
+    receipt_logs.sort();
+    if queried_logs != receipt_logs {
+        return Err(SourceError::Invalid("logs and receipts disagree"));
+    }
+    Ok(block_hash)
+}
+fn normalize_log(value: &Value) -> Result<String, SourceError> {
+    // RPC extensions such as blockTimestamp are not part of Ethereum log identity.
+    let log: crate::discovery::ChainLog =
+        serde_json::from_value(value.clone()).map_err(|_| SourceError::Invalid("log fields"))?;
+    if log.topics.len() > 4 {
+        return Err(SourceError::Invalid("log topics"));
+    }
+    serde_json::to_string(&log).map_err(|_| SourceError::Invalid("log serialization"))
 }

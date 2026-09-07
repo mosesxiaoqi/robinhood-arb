@@ -4,7 +4,7 @@ use arb_core::{
     route::{PoolId, PoolLocator},
     types::{ChainPosition, Offset, PoolDescriptor, PoolVerification, RawRecord},
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
@@ -23,7 +23,7 @@ pub(crate) mod abi {
 #[derive(Debug, Error)]
 #[error("invalid discovery input: {0}")]
 pub struct DiscoveryError(pub &'static str);
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ChainLog {
     pub address: Address,

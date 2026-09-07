@@ -423,10 +423,10 @@ assert_eq!(invalid_block_opportunities.len(), 0);
 
 **接口：** CLI `replay --mode chain --config <path> --checkpoint <id> --to <block>`；重放调用 T18 `Pipeline::process`。
 
-- [ ] 编写 `replay_matches_live_core_results`：同一初始化和三块固定输入，实时模拟入口与存储重放的池状态、路线、金额、报价完全相同。
-- [ ] 运行 `cargo test -p arb-app --test t19_replay` 确认失败。
-- [ ] 从检查点分页读取、按规范链位置组装完整批，使用固定版本和参数；结果比较排除运行 ID/墙钟耗时等非业务字段。
-- [ ] 同一测试通过；缺少初始化或历史区间返回数据缺口，不回退使用最新 RPC 状态。
+- [x] 编写 `replay_matches_live_core_results`：同一初始化和三块固定输入，实时模拟入口与存储重放的池状态、路线、金额、报价完全相同。
+- [x] 运行 `cargo test -p arb-app --test t19_replay` 确认失败。
+- [x] 从检查点分页读取、按规范链位置组装完整批，使用固定版本和参数；结果比较排除运行 ID/墙钟耗时等非业务字段。
+- [x] 同一测试通过；缺少初始化或历史区间返回数据缺口，不回退使用最新 RPC 状态。
 
 ```rust
 assert_eq!(replayed_core_results, live_core_results);

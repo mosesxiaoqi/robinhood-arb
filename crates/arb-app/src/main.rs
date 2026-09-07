@@ -25,7 +25,12 @@ async fn run(args: &[String]) -> Result<(), String> {
             let count=collect(&source,&config.database,from,to,config.queue_capacity).await.map_err(|e|e.to_string())?;
             println!("committed {count} complete blocks");Ok(())
         }
-        _=>Err("usage: arb-app check-config --config <path> | collect --config <path> --from <block> --to <block>".into()),
+        [command,mode_flag,mode,config_flag,path,checkpoint_flag,id,to_flag,to] if command=="replay" && mode_flag=="--mode" && mode=="chain" && config_flag=="--config" && checkpoint_flag=="--checkpoint" && to_flag=="--to" => {
+            let config=load(path)?;let id=id.parse().map_err(|_|"invalid checkpoint id")?;let to=to.parse().map_err(|_|"invalid replay endpoint")?;
+            let count=tokio::task::spawn_blocking(move || arb_app::replay::replay_checkpoint(config,id,to)).await.map_err(|_|"replay worker failed")?.map_err(|e|e.to_string())?;
+            println!("replayed {count} candidates (stored historical input only)");Ok(())
+        }
+        _=>Err("usage: arb-app check-config --config <path> | collect --config <path> --from <block> --to <block> | replay --mode chain --config <path> --checkpoint <id> --to <block>".into()),
     }
 }
 #[tokio::main]

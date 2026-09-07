@@ -43,3 +43,5 @@ cargo run -p arb-app -- collect --config /path/to/config.toml --from 56819909 --
 示例配置使用无效域名供离线校验；采集前使用已核验 RPC。运行数据写入配置指定的本机 SQLite 文件，数据库无需单独安装。范围起点不得跳过已有采集游标；相同范围重跑只补采未提交区块。当前仅接受批量回执接口可用的 RPC。
 
 验证：`cargo test --workspace` 和 `cargo clippy --workspace --all-targets -- -D warnings`。默认测试不访问公网，但 RPC 测试需要绑定本机回环端口。
+
+链状态重放：`cargo run -p arb-app -- replay --mode chain --config /path/to/config.toml --checkpoint 1 --to 56819920`。检查点须关联已保存研究运行，研究参数及算法版本须匹配。重放只读取本地原始记录；缺失完整区块或分叉不明确时失败，不调用最新 RPC 补出历史状态。

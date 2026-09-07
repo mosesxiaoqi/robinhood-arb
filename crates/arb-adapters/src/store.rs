@@ -30,6 +30,7 @@ impl Store {
             include_str!("migrations/004.sql"),
             include_str!("migrations/005.sql"),
             include_str!("migrations/006.sql"),
+            include_str!("migrations/007.sql"),
         ];
         if version as usize > migrations.len() {
             return Err(StoreError::Invalid("unsupported database version"));
@@ -48,6 +49,21 @@ impl Store {
             let tx = connection.transaction()?;
             for migration in &migrations[version as usize..] {
                 tx.execute_batch(migration)?;
+            }
+            if version < 7 {
+                let mut statement = tx.prepare("SELECT id,data FROM raw_records")?;
+                let mut rows = statement.query([])?;
+                while let Some(row) = rows.next()? {
+                    let id: i64 = row.get(0)?;
+                    let data: Vec<u8> = row.get(1)?;
+                    let raw: RawRecord = serde_json::from_slice(&data)?;
+                    if let Some(position) = raw.position {
+                        tx.execute(
+                            "UPDATE raw_records SET block_number=?1 WHERE id=?2",
+                            params![position.block_number.to_string(), id],
+                        )?;
+                    }
+                }
             }
             tx.commit()?;
         }
@@ -94,7 +110,7 @@ impl Store {
                 }
                 continue;
             }
-            tx.execute("INSERT INTO raw_records(chain_id,source,run_id,sequence,data) VALUES(?1,?2,?3,?4,?5)",params![raw.chain_id.to_string(),raw.source,raw.run_id,raw.sequence.to_string(),data])?;
+            tx.execute("INSERT INTO raw_records(chain_id,source,run_id,sequence,data,block_number) VALUES(?1,?2,?3,?4,?5,?6)",params![raw.chain_id.to_string(),raw.source,raw.run_id,raw.sequence.to_string(),data,raw.position.as_ref().map(|p|p.block_number.to_string())])?;
         }
         tx.execute("INSERT INTO source_cursors(chain_id,source,data) VALUES(?1,?2,?3) ON CONFLICT(chain_id,source) DO UPDATE SET data=excluded.data",params![cursor.chain_id.to_string(),cursor.source,serde_json::to_vec(cursor)?])?;
         if let Some(block) = cursor.next_block.checked_sub(1) {
@@ -359,5 +375,51 @@ impl Store {
             Ok(block)
         })
         .transpose()
+    }
+}
+
+impl Store {
+    pub fn read_raw_block(
+        &self,
+        chain: u64,
+        number: u64,
+        after: u64,
+    ) -> Result<Vec<StoredRaw>, StoreError> {
+        let after = i64::try_from(after).map_err(|_| StoreError::Invalid("raw cursor"))?;
+        let mut statement=self.connection.prepare("SELECT id,data,length(data) FROM raw_records WHERE chain_id=?1 AND block_number=?2 AND id>?3 ORDER BY id LIMIT 100")?;
+        let mut rows = statement.query(params![chain.to_string(), number.to_string(), after])?;
+        let mut result = vec![];
+        let mut total = 0;
+        while let Some(row) = rows.next()? {
+            let size = usize::try_from(row.get::<_, i64>(2)?)
+                .map_err(|_| StoreError::Invalid("negative raw size"))?;
+            if size > 64 * 1024 * 1024 {
+                return Err(StoreError::Invalid("raw block read budget"));
+            }
+            if total + size > 64 * 1024 * 1024 {
+                break;
+            }
+            total += size;
+            let data: Vec<u8> = row.get(1)?;
+            let record: RawRecord = serde_json::from_slice(&data)?;
+            record.validate()?;
+            result.push(StoredRaw {
+                id: row.get::<_, i64>(0)? as u64,
+                record,
+            });
+        }
+        Ok(result)
+    }
+}
+impl Store {
+    pub fn load_run(&self, id: &str) -> Result<arb_core::research::RunSpec, StoreError> {
+        let bytes: Vec<u8> = self.connection.query_row(
+            "SELECT data FROM research_runs WHERE run_id=?1",
+            [id],
+            |r| r.get(0),
+        )?;
+        let run: arb_core::research::RunSpec = serde_json::from_slice(&bytes)?;
+        run.validate()?;
+        Ok(run)
     }
 }

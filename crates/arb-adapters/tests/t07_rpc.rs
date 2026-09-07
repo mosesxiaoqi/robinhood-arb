@@ -63,11 +63,15 @@ async fn reject_wrong_chain_and_partial_block() {
             .await
             .is_err()
     );
+    let mut queried = e["requests"][3]["response"]["result"].clone();
+    for log in queried.as_array_mut().unwrap() {
+        log["blockTimestamp"] = json!("0x0");
+    }
     let success = support::serve(vec![
         (200, json!("0x1237")),
         (200, block.clone()),
         (200, e["requests"][4]["response"]["result"].clone()),
-        (200, e["requests"][3]["response"]["result"].clone()),
+        (200, queried),
         (200, block),
     ])
     .await;

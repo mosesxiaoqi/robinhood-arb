@@ -104,3 +104,19 @@ pub fn parse_amount(value: &str) -> Result<U256, ConfigError> {
     }
     U256::from_str_radix(value, 10).map_err(|_| ConfigError("amount exceeds U256"))
 }
+impl Config {
+    pub fn research_hash(&self) -> alloy_primitives::B256 {
+        alloy_primitives::keccak256(
+            serde_json::to_vec(&(
+                self.chain_id,
+                self.quote_asset,
+                &self.amounts,
+                &self.min_depth,
+                &self.min_profit,
+                self.confirmations,
+                self.window_seconds,
+            ))
+            .expect("fixed primitive research configuration is serializable"),
+        )
+    }
+}
