@@ -1,0 +1,17 @@
+{
+  "chain_id": 4663,
+  "pool_id": "0xc4b14f873fd4b8971414c4d5b668c0b692048199fc340c5493854ee6384fde01",
+  "transaction_hash": "0xef0d9edc37fc53534a028f3a8cf1e5d778073875188322b00a9e7b65b85f0c1b",
+  "block_number": 56830275,
+  "block_hash": "0x458cee069d65da6fa790bdde3fe1ae37dd3b2bd97db66c17f0ace20ac1a85db0",
+  "asset_in": "0xfdf57d8fd26beb04275148c4e2c5c24b39ff10a6",
+  "sqrt_price_before": "546447879148713256993706552943139",
+  "tick_before": 176786,
+  "liquidity": "29277002188455995792899",
+  "input": "1132839529103377943832203",
+  "sqrt_price_after": "549513520696869266335560282310895",
+  "gross_output": "23681021653536239",
+  "hook_fee": "236810216535362",
+  "creator_tax": "473620433070724",
+  "net_output": "22970591003930153"
+}

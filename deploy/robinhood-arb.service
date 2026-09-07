@@ -1,0 +1,27 @@
+[Unit]
+Description=Robinhood Chain read-only arbitrage research
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=robinhood-arb
+Group=robinhood-arb
+StateDirectory=robinhood-arb
+WorkingDirectory=/var/lib/robinhood-arb
+ExecStart=/usr/local/bin/robinhood-arb run --config /etc/robinhood-arb/config.toml
+KillSignal=SIGTERM
+TimeoutStopSec=30
+Restart=on-abnormal
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/robinhood-arb
+
+[Install]
+WantedBy=multi-user.target

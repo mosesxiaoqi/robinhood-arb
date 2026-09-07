@@ -1,0 +1,20 @@
+{
+  "base_position": {
+    "number": 56881480,
+    "hash": "0x6543601ac83f33d659d3ed8d816689f4dd46425b4543604d67236d1ab94a6c97"
+  },
+  "amount_in": "1000000000",
+  "middle_amount": "293828362243879529",
+  "amount_out": "80733325",
+  "principal_profit_negative": true,
+  "principal_profit_magnitude": "919266675",
+  "success_gas_used": 187167,
+  "reverted_gas_used": 117828,
+  "helper_source_sha256": "c7532a6d8b8594677bdadd34d23d3d0292ae4384123d2d71605b62eeb98b6872",
+  "helper_runtime_sha256": "e6b7e51dc5f223490929d3244ed7753f00123afb7d20998bfca38eb7acf98de2",
+  "pool_ids": [
+    "0xc4b14f873fd4b8971414c4d5b668c0b692048199fc340c5493854ee6384fde01",
+    "0x711204cf5ece44dfd8f141d5b828c9e95e36848c3fe7e35c255609e0d123fca0"
+  ],
+  "account_conditions": "temporary caller balance 1 ETH; temporary helper code; no pool state or ERC20 approval override; base fee and gas price zero for principal comparison"
+}

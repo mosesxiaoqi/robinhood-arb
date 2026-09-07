@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "chain_id": 4663,
+  "checked_at": "2026-09-07T12:31:36.662109+00:00",
+  "files": {
+    "contracts.json": {
+      "sha256": "6e3280c98bd6bc101a428f7d9b95f021c958fca61a4a5071358f1e8c099ba371"
+    },
+    "pons-observations.json": {
+      "sha256": "0429d99a53d346a0f2f2d98dae03026ea41144901213b751863543d5c2044a60"
+    },
+    "quote-expected.json": {
+      "sha256": "4c32ba593a5d89b4e3d48ba8fe67be3af7b02d7adc08d93b4b43c25227ac185a"
+    },
+    "reverted-receipt.json": {
+      "sha256": "1925ed74b102025c3c5944bb124d1b24f0c800145bef70ff61aa70796491e5bc"
+    },
+    "reverse-observations.json": {
+      "sha256": "5e9e6d24bf45801d2758c986b611125d80aa388478230eeee8c53ef1b6f45bcb"
+    },
+    "reverse-expected.json": {
+      "sha256": "ff77dfed6dd213d7c96c7b12af249a034abeb0491b499145118f53330372a0df"
+    },
+    "simulation-capabilities.json": {
+      "sha256": "cb7e37dff291040fb77ba8a39e9a399f80cbc8ce7e3cbdd2265df887acdca0ef"
+    },
+    "simulation-local-fork.json": {
+      "sha256": "36a8398c67020c60c04e8e894ef85f6eff592cb81f0322bae38808a3a00b9c2a"
+    },
+    "atomic-simulation.json": {
+      "sha256": "506af3a09d521f56d40c7a6d742e99d1c34593e31120e979ec512d77459ec67c"
+    },
+    "atomic-expected.json": {
+      "sha256": "f6ee3fa71e47242caab53b7e4b08431c581a5e9e62eb574e98edeb3e2faf43ab"
+    },
+    "feed-message.json": {
+      "sha256": "fcfbe122b1307cd54fbaf60d6054ffff933095f1a1d43fee6a57d23e9398953e",
+      "source": "First complete uncompressed text frame from T01 public Feed capture, 2026-09-07T12:04:55Z; sequence 56819749; envelope only, execution unknown"
+    }
+  },
+  "source_rules": "Observations are actual public RPC responses or explicitly identified public Feed frames. Expected swap values checked against receipts. Feed envelopes do not prove execution. No fabricated pool or successful transaction."
+}

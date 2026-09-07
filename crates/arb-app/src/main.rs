@@ -1,0 +1,79 @@
+use arb_adapters::rpc::{RpcOptions, RpcSource};
+use arb_app::{config::Config, ingest::collect};
+use std::{
+    env, fs,
+    process::ExitCode,
+    time::{SystemTime, UNIX_EPOCH},
+};
+
+fn load(path: &str) -> Result<Config, String> {
+    let text = fs::read_to_string(path).map_err(|_| "cannot read configuration file".to_owned())?;
+    Config::parse(&text).map_err(|e| e.to_string())
+}
+async fn run(args: &[String]) -> Result<(), String> {
+    match args {
+        [command,flag,path] if command=="check-config" && flag=="--config" => {
+            load(path)?;println!("configuration valid (offline validation; network not contacted)");Ok(())
+        }
+        [command,flag,path] if command=="run" && flag=="--config" => {
+            let config=load(path)?;
+            let (sender,receiver)=tokio::sync::watch::channel(false);
+            let signals=tokio::spawn(async move {
+                #[cfg(unix)] {
+                    if let Ok(mut terminate)=tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+                        tokio::select! {_=tokio::signal::ctrl_c()=>{},_=terminate.recv()=>{}}
+                    } else {let _=tokio::signal::ctrl_c().await;}
+                }
+                #[cfg(not(unix))] {let _=tokio::signal::ctrl_c().await;}
+                let _=sender.send(true);
+            });
+            let result=arb_app::runtime::run(config,receiver).await;
+            signals.abort();
+            let summary=result?;
+            println!("{}",serde_json::to_string_pretty(&summary).map_err(|_|"summary serialization")?);
+            if matches!(summary.status,arb_app::runtime::RunStatus::Failed|arb_app::runtime::RunStatus::DataGapPaused|arb_app::runtime::RunStatus::DiskPaused) {return Err("runtime paused/failed; inspect stored run status".into());}Ok(())
+        }
+        [command,flag,path,from_flag,from,to_flag,to] if command=="collect" && flag=="--config" && from_flag=="--from" && to_flag=="--to" => {
+            let config=load(path)?;
+            let from=from.parse().map_err(|_|"invalid --from block")?;let to=to.parse().map_err(|_|"invalid --to block")?;
+            if let Some(parent)=config.database.parent().filter(|p|!p.as_os_str().is_empty()) {fs::create_dir_all(parent).map_err(|_|"cannot create data directory")?;}
+            let stamp=SystemTime::now().duration_since(UNIX_EPOCH).map_err(|_|"invalid system clock")?.as_nanos();
+            let options=RpcOptions {chain_id:config.chain_id,source:"rpc".into(),run_id:format!("{}-{stamp}",std::process::id()),requests_per_second:config.requests_per_second,max_concurrency:config.max_concurrency,retry_limit:config.retry_limit,timeout_ms:config.timeout_ms,max_response_bytes:config.max_response_bytes};
+            let source=RpcSource::new(&config.rpc_url,options).map_err(|e|e.to_string())?;
+            let count=collect(&source,&config.database,from,to,config.queue_capacity).await.map_err(|e|e.to_string())?;
+            println!("committed {count} complete blocks");Ok(())
+        }
+        [command,flag,path,frames_flag,frames] if command=="collect-feed" && flag=="--config" && frames_flag=="--frames" => {
+            let config=load(path)?;
+            let frames=frames.parse().map_err(|_|"invalid frame bound")?;
+            if let Some(parent)=config.database.parent().filter(|p|!p.as_os_str().is_empty()) {fs::create_dir_all(parent).map_err(|_|"cannot create data directory")?;}
+            let source=arb_adapters::feed::FeedSource::new("wss://feed.mainnet.chain.robinhood.com",config.chain_id,config.max_response_bytes,config.timeout_ms,config.retry_limit).map_err(|e|e.to_string())?;
+            let count=arb_app::ingest::collect_feed(&source,&config.database,"feed-cli",frames,std::time::Duration::from_secs(config.window_seconds.min(300))).await.map_err(|e|e.to_string())?;
+            println!("committed {count} feed frames; execution remains unknown");Ok(())
+        }
+        [command,config_flag,path,run_flag,id,out_flag,out,rest @ ..] if command=="report" && config_flag=="--config" && run_flag=="--run" && out_flag=="--out" => {
+            let config=load(path)?;
+            let range=match rest {[]=>None,[a,from,b,to] if a=="--from" && b=="--to"=>Some((from.parse().map_err(|_|"invalid --from")?,to.parse().map_err(|_|"invalid --to")?)),_=>return Err("invalid report range".into())};
+            let id=id.clone();let out=std::path::PathBuf::from(out);
+            tokio::task::spawn_blocking(move || arb_app::report::export_report(&config.database,&id,&out,range)).await.map_err(|_|"report worker failed")??;
+            println!("report exported: 只读模拟，非真实成交");Ok(())
+        }
+        [command,mode_flag,mode,config_flag,path,checkpoint_flag,id,to_flag,to] if command=="replay" && mode_flag=="--mode" && matches!(mode.as_str(),"chain"|"observed") && config_flag=="--config" && checkpoint_flag=="--checkpoint" && to_flag=="--to" => {
+            let config=load(path)?;let id=id.parse().map_err(|_|"invalid checkpoint id")?;let to=to.parse().map_err(|_|"invalid replay endpoint")?;
+            let observed=mode=="observed";
+            let count=tokio::task::spawn_blocking(move || arb_app::replay::replay_checkpoint_mode(config,id,to,observed)).await.map_err(|_|"replay worker failed")?.map_err(|e|e.to_string())?;
+            println!("replayed {count} candidates (stored historical input only)");Ok(())
+        }
+        _=>Err("usage: arb-app run --config <path> | check-config --config <path> | collect --config <path> --from <block> --to <block> | report --config <path> --run <id> --out <new-directory> [--from <block> --to <block>] | collect-feed --config <path> --frames <1..10000> | replay --mode <chain|observed> --config <path> --checkpoint <id> --to <block>".into()),
+    }
+}
+#[tokio::main]
+async fn main() -> ExitCode {
+    match run(&env::args().skip(1).collect::<Vec<_>>()).await {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("{error}");
+            ExitCode::FAILURE
+        }
+    }
+}

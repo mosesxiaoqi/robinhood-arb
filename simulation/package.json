@@ -1,0 +1,12 @@
+{
+  "name": "arb-atomic-probe",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Optional compiler for a simulation-only RPC code override",
+  "scripts": {
+    "build": "node ../scripts/compile_simulation.cjs"
+  },
+  "devDependencies": {
+    "solc": "0.8.35"
+  }
+}

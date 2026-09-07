@@ -1,0 +1,422 @@
+{
+  "version": 1,
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "chain_id": 4663,
+  "source": "https://rpc.mainnet.chain.robinhood.com",
+  "command": "arb-app run --config <local acceptance configuration>",
+  "config": {
+    "requests_per_second": 2,
+    "max_concurrency": 1,
+    "timeout_ms": 10000,
+    "max_response_bytes": 4194304,
+    "window_seconds": 20,
+    "disk_budget_bytes": 1073741824,
+    "disk_reserve_bytes": 10485760
+  },
+  "summary": {
+    "collected_blocks": 6,
+    "disk_end": 8754048,
+    "disk_start": 196688,
+    "ended_at_ms": 1788793197037,
+    "error": null,
+    "first_collected": 56924060,
+    "last_collected": 56924065,
+    "max_processing_ns": 87648250,
+    "processed_blocks": 0,
+    "run_id": "readonly-acceptance-t30",
+    "started_at_ms": 1788793177030,
+    "status": "WindowEnded"
+  },
+  "durable_cursor": {
+    "chain_id": 4663,
+    "source": "rpc",
+    "next_block": 56924066,
+    "last_block_hash": "0x8e22bbdfbfa2e5485f408aa5d8fd1189512f4985f672dbb95fc670369995d1f4"
+  },
+  "raw_observations": [
+    {
+      "version": 1,
+      "chain_id": 4663,
+      "source": "rpc",
+      "run_id": "runtime-52929-1788793177030",
+      "sequence": 3,
+      "received_at_ms": 1788793178251,
+      "request_elapsed_ns": 215393542,
+      "kind": "block",
+      "position": {
+        "block_number": 56924060,
+        "block_hash": "0xa44408d654ad08b49ca95a1d26603eb8a483822bc44425a22f59ce42c099a850",
+        "offset": "BlockEnd"
+      },
+      "transaction_hash": null,
+      "execution_status": "Unknown",
+      "confirmation": "Included",
+      "payload_sha256": "7541b3e690b7172e8f98cdeebd11c3cf6bcada7699f87b63f030fe5801434769",
+      "payload_bytes": 2514,
+      "raw_id": 1
+    },
+    {
+      "version": 1,
+      "chain_id": 4663,
+      "source": "rpc",
+      "run_id": "runtime-52929-1788793177030",
+      "sequence": 4,
+      "received_at_ms": 1788793178869,
+      "request_elapsed_ns": 333918000,
+      "kind": "receipts",
+      "position": {
+        "block_number": 56924060,
+        "block_hash": "0xa44408d654ad08b49ca95a1d26603eb8a483822bc44425a22f59ce42c099a850",
+        "offset": "BlockEnd"
+      },
+      "transaction_hash": null,
+      "execution_status": "Unknown",
+      "confirmation": "Included",
+      "payload_sha256": "71306a25c6d3a5465ecf5bfec3c421ede6b606b0c75931381de28c03bd142842",
+      "payload_bytes": 79703,
+      "raw_id": 2
+    },
+    {
+      "version": 1,
+      "chain_id": 4663,
+      "source": "rpc",
+      "run_id": "runtime-52929-1788793177030",
+      "sequence": 5,
+      "received_at_ms": 1788793179276,
+      "request_elapsed_ns": 239906291,
+      "kind": "logs",
+      "position": {
+        "block_number": 56924060,
+        "block_hash": "0xa44408d654ad08b49ca95a1d26603eb8a483822bc44425a22f59ce42c099a850",
+        "offset": "BlockEnd"
+      },
+      "transaction_hash": null,
+      "execution_status": "Unknown",
+      "confirmation": "Included",
+      "payload_sha256": "c13fab9326ba2e62489633e40d2c9cbb6d8f87180cd62ff0c2347683afdc224b",
+      "payload_bytes": 66129,
+      "raw_id": 3
+    },
+    {
+      "version": 1,
+      "chain_id": 4663,
+      "source": "rpc",
+      "run_id": "runtime-52929-1788793177030",
+      "sequence": 9,
+      "received_at_ms": 1788793181264,
+      "request_elapsed_ns": 217347416,
+      "kind": "block",
+      "position": {
+        "block_number": 56924061,
+        "block_hash": "0x8528eab04df3f5429d08d8ab6784bcd0c495f8899368f6989f35c54f4ae9a460",
+        "offset": "BlockEnd"
+      },
+      "transaction_hash": null,
+      "execution_status": "Unknown",
+      "confirmation": "Included",
+      "payload_sha256": "7a93b13f38f6e4fd853a21d2fbeabd93b481bc9d0f99be4ac032eddc39bc8bc8",
+      "payload_bytes": 2721,
+      "raw_id": 4
+    },
+    {
+      "version": 1,
+      "chain_id": 4663,
+      "source": "rpc",
+      "run_id": "runtime-52929-1788793177030",
+      "sequence": 10,
+      "received_at_ms": 1788793181834,
+      "request_elapsed_ns": 290273083,
+      "kind": "receipts",
+      "position": {
+        "block_number": 56924061,
+        "block_hash": "0x8528eab04df3f5429d08d8ab6784bcd0c495f8899368f6989f35c54f4ae9a460",
+        "offset": "BlockEnd"
+      },
+      "transaction_hash": null,
+      "execution_status": "Unknown",
+      "confirmation": "Included",
+      "payload_sha256": "9ee593746f3933dea856c2f0c48bb7456483c02fb88222db985280d400855291",
+      "payload_bytes": 198139,
+      "raw_id": 5
+    },
+    {
+      "version": 1,
+      "chain_id": 4663,
+      "source": "rpc",
+      "run_id": "runtime-52929-1788793177030",
+      "sequence": 11,
+      "received_at_ms": 1788793182308,
+      "request_elapsed_ns": 263071125,
+      "kind": "logs",
+      "position": {
+        "block_number": 56924061,
+        "block_hash": "0x8528eab04df3f5429d08d8ab6784bcd0c495f8899368f6989f35c54f4ae9a460",
+        "offset": "BlockEnd"
+      },
+      "transaction_hash": null,
+      "execution_status": "Unknown",
+      "confirmation": "Included",
+      "payload_sha256": "0d9bce7587186ff6ab6e0e684cb7b259c7377e50809a6e46c875a275d50c9a9b",
+      "payload_bytes": 181433,
+      "raw_id": 6
+    },
+    {
+      "version": 1,
+      "chain_id": 4663,
+      "source": "rpc",
+      "run_id": "runtime-52929-1788793177030",
+      "sequence": 15,
+      "received_at_ms": 1788793184277,
+      "request_elapsed_ns": 218741542,
+      "kind": "block",
+      "position": {
+        "block_number": 56924062,
+        "block_hash": "0x322bd23389be603223f8478286f9c30020d5e41487a17a7c04b4ea4c3057d87b",
+        "offset": "BlockEnd"
+      },
+      "transaction_hash": null,
+      "execution_status": "Unknown",
+      "confirmation": "Included",
+      "payload_sha256": "71912c4f6f92f871ff5a9020ee2042b65bdf4fca52965c97b4d50605245e7f24",
+      "payload_bytes": 2101,
+      "raw_id": 7
+    },
+    {
+      "version": 1,
+      "chain_id": 4663,
+      "source": "rpc",
+      "run_id": "runtime-52929-1788793177030",
+      "sequence": 16,
+      "received_at_ms": 1788793184789,
+      "request_elapsed_ns": 231029917,
+      "kind": "receipts",
+      "position": {
+        "block_number": 56924062,
+        "block_hash": "0x322bd23389be603223f8478286f9c30020d5e41487a17a7c04b4ea4c3057d87b",
+        "offset": "BlockEnd"
+      },
+      "transaction_hash": null,
+      "execution_status": "Unknown",
+      "confirmation": "Included",
+      "payload_sha256": "5a5a595e80c5af0955d9e4b16be0269d2fa159078d233b9d303680b44c331f9c",
+      "payload_bytes": 76900,
+      "raw_id": 8
+    },
+    {
+      "version": 1,
+      "chain_id": 4663,
+      "source": "rpc",
+      "run_id": "runtime-52929-1788793177030",
+      "sequence": 17,
+      "received_at_ms": 1788793185305,
+      "request_elapsed_ns": 243998833,
+      "kind": "logs",
+      "position": {
+        "block_number": 56924062,
+        "block_hash": "0x322bd23389be603223f8478286f9c30020d5e41487a17a7c04b4ea4c3057d87b",
+        "offset": "BlockEnd"
+      },
+      "transaction_hash": null,
+      "execution_status": "Unknown",
+      "confirmation": "Included",
+      "payload_sha256": "da057012a02e8c5327e1e66c6b1abcf380cf777f111a22647f3e336cc4e78ae6",
+      "payload_bytes": 69597,
+      "raw_id": 9
+    },
+    {
+      "version": 1,
+      "chain_id": 4663,
+      "source": "rpc",
+      "run_id": "runtime-52929-1788793177030",
+      "sequence": 21,
+      "received_at_ms": 1788793187288,
+      "request_elapsed_ns": 216913042,
+      "kind": "block",
+      "position": {
+        "block_number": 56924063,
+        "block_hash": "0x52508af140b54244dd4c9bb55b091bcae3b077a334dc6ddf163053ffd0c8662a",
+        "offset": "BlockEnd"
+      },
+      "transaction_hash": null,
+      "execution_status": "Unknown",
+      "confirmation": "Included",
+      "payload_sha256": "3006d255df66f0f4039301e4dc5119812a5a2d391a91615aec258cb40a2122df",
+      "payload_bytes": 2584,
+      "raw_id": 10
+    },
+    {
+      "version": 1,
+      "chain_id": 4663,
+      "source": "rpc",
+      "run_id": "runtime-52929-1788793177030",
+      "sequence": 22,
+      "received_at_ms": 1788793187843,
+      "request_elapsed_ns": 273536125,
+      "kind": "receipts",
+      "position": {
+        "block_number": 56924063,
+        "block_hash": "0x52508af140b54244dd4c9bb55b091bcae3b077a334dc6ddf163053ffd0c8662a",
+        "offset": "BlockEnd"
+      },
+      "transaction_hash": null,
+      "execution_status": "Unknown",
+      "confirmation": "Included",
+      "payload_sha256": "9748570e577605ca6fe6998b64345903eb56f12c2820b8e10c18b45af470e264",
+      "payload_bytes": 87053,
+      "raw_id": 11
+    },
+    {
+      "version": 1,
+      "chain_id": 4663,
+      "source": "rpc",
+      "run_id": "runtime-52929-1788793177030",
+      "sequence": 23,
+      "received_at_ms": 1788793188315,
+      "request_elapsed_ns": 242565584,
+      "kind": "logs",
+      "position": {
+        "block_number": 56924063,
+        "block_hash": "0x52508af140b54244dd4c9bb55b091bcae3b077a334dc6ddf163053ffd0c8662a",
+        "offset": "BlockEnd"
+      },
+      "transaction_hash": null,
+      "execution_status": "Unknown",
+      "confirmation": "Included",
+      "payload_sha256": "70d00f8f6939698fed95bf1d82a7f54fde8a4af3b5165515be73697c0f0dfaa3",
+      "payload_bytes": 72439,
+      "raw_id": 12
+    },
+    {
+      "version": 1,
+      "chain_id": 4663,
+      "source": "rpc",
+      "run_id": "runtime-52929-1788793177030",
+      "sequence": 27,
+      "received_at_ms": 1788793190297,
+      "request_elapsed_ns": 213513459,
+      "kind": "block",
+      "position": {
+        "block_number": 56924064,
+        "block_hash": "0xbfd0a4936b19faed2dffdc85f903445ceb47236af8412a70a75a97a5ba1096b2",
+        "offset": "BlockEnd"
+      },
+      "transaction_hash": null,
+      "execution_status": "Unknown",
+      "confirmation": "Included",
+      "payload_sha256": "fe39d65e379453d429741c92c2a81d147c0d080fc92fd09e5097dff12c257e1a",
+      "payload_bytes": 2929,
+      "raw_id": 13
+    },
+    {
+      "version": 1,
+      "chain_id": 4663,
+      "source": "rpc",
+      "run_id": "runtime-52929-1788793177030",
+      "sequence": 28,
+      "received_at_ms": 1788793190937,
+      "request_elapsed_ns": 358241042,
+      "kind": "receipts",
+      "position": {
+        "block_number": 56924064,
+        "block_hash": "0xbfd0a4936b19faed2dffdc85f903445ceb47236af8412a70a75a97a5ba1096b2",
+        "offset": "BlockEnd"
+      },
+      "transaction_hash": null,
+      "execution_status": "Unknown",
+      "confirmation": "Included",
+      "payload_sha256": "54e8949fce01693c1c52b92d18c43c3b9f3d87b332db96c901fb4453c70fb252",
+      "payload_bytes": 242256,
+      "raw_id": 14
+    },
+    {
+      "version": 1,
+      "chain_id": 4663,
+      "source": "rpc",
+      "run_id": "runtime-52929-1788793177030",
+      "sequence": 29,
+      "received_at_ms": 1788793191547,
+      "request_elapsed_ns": 466029625,
+      "kind": "logs",
+      "position": {
+        "block_number": 56924064,
+        "block_hash": "0xbfd0a4936b19faed2dffdc85f903445ceb47236af8412a70a75a97a5ba1096b2",
+        "offset": "BlockEnd"
+      },
+      "transaction_hash": null,
+      "execution_status": "Unknown",
+      "confirmation": "Included",
+      "payload_sha256": "1af965b420e19e49d207c9223d616e2f1ccc58a2c016e3fe347b9d9ad066d779",
+      "payload_bytes": 222405,
+      "raw_id": 15
+    },
+    {
+      "version": 1,
+      "chain_id": 4663,
+      "source": "rpc",
+      "run_id": "runtime-52929-1788793177030",
+      "sequence": 33,
+      "received_at_ms": 1788793193315,
+      "request_elapsed_ns": 221126416,
+      "kind": "block",
+      "position": {
+        "block_number": 56924065,
+        "block_hash": "0x8e22bbdfbfa2e5485f408aa5d8fd1189512f4985f672dbb95fc670369995d1f4",
+        "offset": "BlockEnd"
+      },
+      "transaction_hash": null,
+      "execution_status": "Unknown",
+      "confirmation": "Included",
+      "payload_sha256": "6ffde0351ec29ce2546980d5d1a08533224e98dc5ae08969f107372527a6cfd5",
+      "payload_bytes": 2791,
+      "raw_id": 16
+    },
+    {
+      "version": 1,
+      "chain_id": 4663,
+      "source": "rpc",
+      "run_id": "runtime-52929-1788793177030",
+      "sequence": 34,
+      "received_at_ms": 1788793193903,
+      "request_elapsed_ns": 312419500,
+      "kind": "receipts",
+      "position": {
+        "block_number": 56924065,
+        "block_hash": "0x8e22bbdfbfa2e5485f408aa5d8fd1189512f4985f672dbb95fc670369995d1f4",
+        "offset": "BlockEnd"
+      },
+      "transaction_hash": null,
+      "execution_status": "Unknown",
+      "confirmation": "Included",
+      "payload_sha256": "46e31aa935d1cb4b597398a2e86638ab85bfe4a675838e8d20f920edbd6cf9a3",
+      "payload_bytes": 194539,
+      "raw_id": 17
+    },
+    {
+      "version": 1,
+      "chain_id": 4663,
+      "source": "rpc",
+      "run_id": "runtime-52929-1788793177030",
+      "sequence": 35,
+      "received_at_ms": 1788793194344,
+      "request_elapsed_ns": 251293792,
+      "kind": "logs",
+      "position": {
+        "block_number": 56924065,
+        "block_hash": "0x8e22bbdfbfa2e5485f408aa5d8fd1189512f4985f672dbb95fc670369995d1f4",
+        "offset": "BlockEnd"
+      },
+      "transaction_hash": null,
+      "execution_status": "Unknown",
+      "confirmation": "Included",
+      "payload_sha256": "cb83c691148cfbe7f3a6263b3227202d133bb6c3ab31966bcdce14ba4e9eeeac",
+      "payload_bytes": 176786,
+      "raw_id": 18
+    }
+  ],
+  "full_payload_storage": "Local ignored data/runtime-acceptance.db; committed response hashes are provenance metadata, not a substitute for replay input",
+  "verification_limits": [
+    "No pools discovered in this finite window; confirmed-state pipeline not initialized",
+    "No profitable opportunity or actual execution success rate claimed",
+    "Linux CI configured, not executed on this macOS host"
+  ]
+}

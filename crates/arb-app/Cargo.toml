@@ -1,0 +1,23 @@
+[package]
+name = "arb-app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+arb-core = { path = "../arb-core" }
+arb-adapters = { path = "../arb-adapters" }
+arb-research = { path = "../arb-research" }
+serde.workspace = true
+toml.workspace = true
+url.workspace = true
+alloy-primitives.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+serde_json.workspace = true
+
+fs2 = "0.4"
+
+[dev-dependencies]
+rusqlite = { version = "0.40", features = ["bundled"] }
+tempfile = "3"

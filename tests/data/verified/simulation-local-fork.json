@@ -1,0 +1,28 @@
+{
+  "checked_at": "2026-09-07T13:40:24.317625+00:00",
+  "backend": "anvil 1.0.0",
+  "base_block": 56830269,
+  "accounts": 0,
+  "request": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "eth_call",
+    "params": [
+      {
+        "to": "0xfdf57d8fd26beb04275148c4e2c5c24b39ff10a6",
+        "data": "0x313ce567"
+      },
+      "latest"
+    ]
+  },
+  "response": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "error": {
+      "code": -32603,
+      "message": "failed to get account for 0x0000000000000000000000000000000000000000: server returned an error response: error code -32000: metadata is not found, 56830272"
+    }
+  },
+  "exit_code": 0,
+  "stderr": ""
+}
