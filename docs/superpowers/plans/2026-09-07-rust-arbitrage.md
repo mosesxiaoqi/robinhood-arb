@@ -367,10 +367,10 @@ assert_eq!(quote_result.amount_out, independently_verified_amount_out);
 
 **接口：** `two_leg_routes(pools: &[PoolDescriptor], quote_asset: Address) -> Vec<Route>`。
 
-- [ ] 编写 `pair_two_pools_both_directions`：两个有效池产生两个方向；第三个不同目标币或报价资产的池不能串入；同池不能配对。
-- [ ] 运行 `cargo test -p arb-core --test t16_candidates` 确认失败。
-- [ ] 按网络、目标币、报价资产分组，生成不同池的有向组合，排序保证重放结果稳定；忽略未核验或不支持池，并保留排除计数。
-- [ ] 同一测试通过；三腿合法结构依然可用，但候选生成输出全是两腿。
+- [x] 编写 `pair_two_pools_both_directions`：两个有效池产生两个方向；第三个不同目标币或报价资产的池不能串入；同池不能配对。
+- [x] 运行 `cargo test -p arb-core --test t16_candidates` 确认失败。
+- [x] 按网络、目标币、报价资产分组，生成不同池的有向组合，排序保证重放结果稳定；忽略未核验或不支持池，并保留排除计数。
+- [x] 同一测试通过；三腿合法结构依然可用，但候选生成输出全是两腿。
 
 ```rust
 assert_eq!(routes.len(), 2);
