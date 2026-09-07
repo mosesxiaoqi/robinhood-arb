@@ -1,0 +1,2 @@
+CREATE TABLE bootstraps (id INTEGER PRIMARY KEY AUTOINCREMENT, data BLOB NOT NULL);
+PRAGMA user_version = 4;

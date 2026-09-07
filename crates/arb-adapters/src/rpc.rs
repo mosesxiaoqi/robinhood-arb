@@ -50,7 +50,7 @@ pub struct RpcSource {
     endpoint: reqwest::Url,
     options: RpcOptions,
     next_request: Mutex<Instant>,
-    gate: Semaphore,
+    pub(crate) gate: Semaphore,
     sequence: AtomicU64,
 }
 impl RpcSource {
@@ -318,5 +318,25 @@ impl RpcSource {
     }
     pub fn source_label(&self) -> &str {
         &self.options.source
+    }
+}
+
+impl RpcSource {
+    pub(crate) async fn bootstrap_request(
+        &self,
+        method: &'static str,
+        params: Value,
+        evidence: &mut Vec<Vec<u8>>,
+    ) -> Result<Value, SourceError> {
+        let reply = self.request(method, params.clone()).await?;
+        let entry = serde_json::to_vec(
+            &json!({"method":method,"params":params,"response_bytes":reply.bytes}),
+        )
+        .map_err(|_| SourceError::Invalid("evidence JSON"))?;
+        if evidence.iter().map(Vec::len).sum::<usize>() + entry.len() > 64 * 1024 * 1024 {
+            return Err(SourceError::TooLarge);
+        }
+        evidence.push(entry);
+        Ok(reply.value)
     }
 }

@@ -295,10 +295,10 @@ assert_eq!(failed_transaction_updates.len(), 0);
 
 **接口：** 定义 `PoolState`、`Bootstrap`；`bootstrap(pools: &[PoolDescriptor], at: ChainPosition) -> Result<Bootstrap, SourceError>`，异步。
 
-- [ ] 编写 `bootstrap_at_one_hash`：两池读取必须绑定同一区块哈希；其中一池缺状态时整体不能形成完整起始视图。
-- [ ] 运行 `cargo test -p arb-adapters --test t12_bootstrap` 确认失败。
-- [ ] 按 T09 协议读取所有报价所需状态和参数，不只读取最新储备；节点仅支持区块号时前后核对区块哈希，变化则拒绝结果。
-- [ ] 同一测试通过；初始化状态、元数据和参数持久化，可离线加载。在线中途发现池时沿用该初始化规则。
+- [x] 编写 `bootstrap_at_one_hash`：两池读取必须绑定同一区块哈希；其中一池缺状态时整体不能形成完整起始视图。
+- [x] 运行 `cargo test -p arb-adapters --test t12_bootstrap` 确认失败。
+- [x] 按 T09 协议读取所有报价所需状态和参数，不只读取最新储备；节点仅支持区块号时前后核对区块哈希，变化则拒绝结果。
+- [x] 同一测试通过；初始化状态、元数据和参数持久化，可离线加载。在线中途发现池时沿用该初始化规则。
 
 ```rust
 assert_eq!(bootstrap.position.block_hash, requested_hash);

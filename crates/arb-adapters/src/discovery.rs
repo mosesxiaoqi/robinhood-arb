@@ -184,10 +184,10 @@ pub fn discover(records: &[RawRecord]) -> Result<Vec<PoolDescriptor>, DiscoveryE
                     PoolVerification::Unsupported("nonzero LP fee".into())
                 },
             };
-            if let Some(previous) = pools.insert(id, pool.clone()) {
-                if previous != pool {
-                    return Err(DiscoveryError("conflicting pool registration"));
-                }
+            if let Some(previous) = pools.insert(id, pool.clone())
+                && previous != pool
+            {
+                return Err(DiscoveryError("conflicting pool registration"));
             }
         }
     }
