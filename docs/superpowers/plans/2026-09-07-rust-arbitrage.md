@@ -204,10 +204,10 @@ assert_eq!(ids, vec![1, 2, 3]);
 
 **接口：** `RpcSource::fetch_block(&self, number: u64) -> Result<Vec<RawRecord>, SourceError>`，异步；输出原始头、所需交易/回执/日志，保留获取范围证据。
 
-- [ ] 编写 `reject_wrong_chain_and_partial_block`：本地有限响应服务返回错误链 ID 或缺失回执时不能报告完整区块；限流响应最多重试配置次数。
-- [ ] 运行 `cargo test -p arb-adapters --test t07_rpc` 确认失败。
-- [ ] 用 Alloy 已支持的只读接口采集；请求前确认网络，限制并发/响应大小/超时，区分可重试错误与永久错误。
-- [ ] 同一测试通过；另对 T01 区块做一次显式线上验收，按哈希核对返回事实，线上检查不进入默认测试。
+- [x] 编写 `reject_wrong_chain_and_partial_block`：本地有限响应服务返回错误链 ID 或缺失回执时不能报告完整区块；限流响应最多重试配置次数。
+- [x] 运行 `cargo test -p arb-adapters --test t07_rpc` 确认失败。
+- [x] 用 Alloy 已支持的只读接口采集；请求前确认网络，限制并发/响应大小/超时，区分可重试错误与永久错误。
+- [x] 同一测试通过；另对 T01 区块做一次显式线上验收，按哈希核对返回事实，线上检查不进入默认测试。
 
 ```rust
 assert!(wrong_chain_result.is_err());
