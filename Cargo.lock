@@ -129,6 +129,7 @@ version = "0.1.0"
 dependencies = [
  "alloy-json-rpc",
  "alloy-primitives",
+ "alloy-sol-types",
  "arb-core",
  "reqwest",
  "rusqlite",

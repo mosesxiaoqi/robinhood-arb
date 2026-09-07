@@ -23,28 +23,30 @@ impl Store {
         let mut connection = Connection::open(path)?;
         connection.busy_timeout(Duration::from_secs(5))?;
         let version: u32 = connection.pragma_query_value(None, "user_version", |r| r.get(0))?;
-        match version {
-            0 => {
-                let count: i64 = connection.query_row(
-                    "SELECT count(*) FROM sqlite_master WHERE type='table'",
-                    [],
-                    |r| r.get(0),
-                )?;
-                if count != 0 {
-                    return Err(StoreError::Invalid("unversioned nonempty database"));
-                }
-                let tx = connection.transaction()?;
-                tx.execute_batch(include_str!("migrations/001.sql"))?;
-                tx.execute_batch(include_str!("migrations/002.sql"))?;
-                tx.commit()?;
+        let migrations = [
+            include_str!("migrations/001.sql"),
+            include_str!("migrations/002.sql"),
+            include_str!("migrations/003.sql"),
+        ];
+        if version as usize > migrations.len() {
+            return Err(StoreError::Invalid("unsupported database version"));
+        }
+        if version == 0 {
+            let count: i64 = connection.query_row(
+                "SELECT count(*) FROM sqlite_master WHERE type='table'",
+                [],
+                |r| r.get(0),
+            )?;
+            if count != 0 {
+                return Err(StoreError::Invalid("unversioned nonempty database"));
             }
-            1 => {
-                let tx = connection.transaction()?;
-                tx.execute_batch(include_str!("migrations/002.sql"))?;
-                tx.commit()?;
+        }
+        if (version as usize) < migrations.len() {
+            let tx = connection.transaction()?;
+            for migration in &migrations[version as usize..] {
+                tx.execute_batch(migration)?;
             }
-            2 => {}
-            _ => return Err(StoreError::Invalid("unsupported database version")),
+            tx.commit()?;
         }
         let mode: String = connection.query_row("PRAGMA journal_mode=WAL", [], |r| r.get(0))?;
         if mode != "wal" {
@@ -180,5 +182,41 @@ impl Store {
     ) -> Result<(), StoreError> {
         self.connection.execute("INSERT INTO ingest_gaps(chain_id,source,block_number,reason) VALUES(?1,?2,?3,?4) ON CONFLICT(chain_id,source,block_number) DO UPDATE SET reason=excluded.reason,resolved=0",params![chain.to_string(),source,block.to_string(),reason])?;
         Ok(())
+    }
+}
+
+impl Store {
+    pub fn register_pools(
+        &mut self,
+        pools: &[arb_core::types::PoolDescriptor],
+    ) -> Result<(), StoreError> {
+        let tx = self.connection.transaction()?;
+        for pool in pools {
+            tx.execute(
+                "INSERT INTO pool_registry(key,data) VALUES(?1,?2) ON CONFLICT(key) DO NOTHING",
+                params![serde_json::to_string(&pool.id)?, serde_json::to_vec(pool)?],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+    pub fn read_pools(
+        &self,
+        after: Option<&arb_core::route::PoolId>,
+        limit: usize,
+    ) -> Result<Vec<arb_core::types::PoolDescriptor>, StoreError> {
+        if !(1..=1000).contains(&limit) {
+            return Err(StoreError::Invalid("page limit must be 1..1000"));
+        }
+        let key = after
+            .map(serde_json::to_string)
+            .transpose()?
+            .unwrap_or_default();
+        let mut statement = self
+            .connection
+            .prepare("SELECT data FROM pool_registry WHERE key>?1 ORDER BY key LIMIT ?2")?;
+        let rows = statement.query_map(params![key, limit as i64], |r| r.get::<_, Vec<u8>>(0))?;
+        rows.map(|row| serde_json::from_slice(&row?).map_err(StoreError::from))
+            .collect()
     }
 }

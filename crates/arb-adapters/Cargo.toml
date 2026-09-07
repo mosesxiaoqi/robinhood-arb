@@ -17,5 +17,7 @@ alloy-json-rpc.workspace = true
 url.workspace = true
 alloy-primitives.workspace = true
 
+alloy-sol-types.workspace = true
+
 [dev-dependencies]
 tempfile = "3"

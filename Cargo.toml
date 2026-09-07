@@ -17,3 +17,4 @@ thiserror = "2"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "signal", "net", "io-util"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
 alloy-json-rpc = "1"
+alloy-sol-types = { version = "1", default-features = false }

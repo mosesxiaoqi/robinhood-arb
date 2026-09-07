@@ -75,3 +75,37 @@ pub struct SourceCursor {
     pub next_block: u64,
     pub last_block_hash: Option<B256>,
 }
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PoolVerification {
+    Pending,
+    Supported,
+    Unsupported(String),
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PoolDescriptor {
+    pub id: crate::route::PoolId,
+    pub protocol: String,
+    pub token: alloy_primitives::Address,
+    pub quote_asset: alloy_primitives::Address,
+    pub currency0: alloy_primitives::Address,
+    pub currency1: alloy_primitives::Address,
+    pub hook: alloy_primitives::Address,
+    pub lp_fee: u32,
+    pub tick_spacing: i32,
+    pub hook_fee_bps: Option<u16>,
+    pub creator_tax_bps: Option<u16>,
+    pub token_decimals: Option<u8>,
+    pub quote_decimals: Option<u8>,
+    pub initialized_at: ChainPosition,
+    pub verification: PoolVerification,
+}
+impl PoolDescriptor {
+    pub fn is_quoteable(&self) -> bool {
+        self.verification == PoolVerification::Supported
+            && self.token_decimals.is_some()
+            && self.quote_decimals.is_some()
+            && self.hook_fee_bps.is_some()
+            && self.creator_tax_bps.is_some()
+    }
+}

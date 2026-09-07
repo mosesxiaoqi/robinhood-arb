@@ -259,10 +259,10 @@ python3 -m json.tool tests/data/verified/manifest.json
 
 **接口：** 定义 `PoolDescriptor`；`discover(records: &[RawRecord]) -> Result<Vec<PoolDescriptor>, DiscoveryError>`。
 
-- [ ] 编写 `register_verified_pool_once`：T09 毕业样本关联到正确代币和池；重复输入不重复登记；同名伪工厂事件不能登记为已核验。
-- [ ] 运行 `cargo test -p arb-adapters --test t10_discovery` 确认失败。
-- [ ] 限定已核验工厂与实现，登记资产、小数位、协议标识、费用规则和支持状态；保存登记依据及版本。
-- [ ] 同一测试通过；缺少字节码/元数据时保留未核验记录，不进入可报价集合。
+- [x] 编写 `register_verified_pool_once`：T09 毕业样本关联到正确代币和池；重复输入不重复登记；同名伪工厂事件不能登记为已核验。
+- [x] 运行 `cargo test -p arb-adapters --test t10_discovery` 确认失败。
+- [x] 限定已核验工厂与实现，登记资产、小数位、协议标识、费用规则和支持状态；保存登记依据及版本。
+- [x] 同一测试通过；缺少字节码/元数据时保留未核验记录，不进入可报价集合。
 
 ```rust
 assert_eq!(verified_pools.len(), 1);
