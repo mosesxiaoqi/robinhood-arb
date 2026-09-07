@@ -19,5 +19,8 @@ alloy-primitives.workspace = true
 
 alloy-sol-types.workspace = true
 
+tokio-tungstenite = { version = "0.28", features = ["rustls-tls-webpki-roots"] }
+futures-util = { version = "0.3", features = ["sink"] }
+
 [dev-dependencies]
 tempfile = "3"

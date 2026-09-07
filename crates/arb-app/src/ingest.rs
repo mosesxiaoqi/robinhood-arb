@@ -161,3 +161,58 @@ pub async fn collect(
         .map_err(|_| IngestError::Stopped("writer panicked"))?;
     result
 }
+
+/// One pending frame provides backpressure; feed cursors never enter the block cursor table.
+pub async fn collect_feed(
+    source: &arb_adapters::feed::FeedSource,
+    path: &Path,
+    run: &str,
+    max_frames: usize,
+    window: std::time::Duration,
+) -> Result<usize, IngestError> {
+    if max_frames == 0
+        || max_frames > 10000
+        || window.is_zero()
+        || window > std::time::Duration::from_secs(300)
+    {
+        return Err(IngestError::Stopped("invalid feed window"));
+    }
+    let path = path.to_owned();
+    let mut store = tokio::task::spawn_blocking(move || Store::open(&path))
+        .await
+        .map_err(|_| IngestError::Stopped("feed writer startup"))??;
+    let deadline = tokio::time::Instant::now() + window;
+    let mut count = 0;
+    let mut reconnects = 0;
+    async {
+        while count < max_frames {
+            let next = store.feed_next_sequence(4663)?;
+            let mut session = tokio::time::timeout_at(deadline, source.connect(next))
+                .await
+                .map_err(|_| IngestError::Stopped("feed window ended"))?
+                .map_err(|_| IngestError::Stopped("feed disabled: connection unavailable"))?;
+            while count < max_frames {
+                let packet = match tokio::time::timeout_at(deadline, session.receive(run)).await {
+                    Ok(Ok(packet)) => packet,
+                    Err(_) => return Ok(count),
+                    Ok(Err(_)) if reconnects < source.retry_limit() => {
+                        reconnects += 1;
+                        break;
+                    }
+                    Ok(Err(_)) => {
+                        return Err(IngestError::Stopped("feed disabled: receive/retry limit"));
+                    }
+                };
+                store = tokio::task::spawn_blocking(move || {
+                    store.append_feed(&packet)?;
+                    Ok::<_, StoreError>(store)
+                })
+                .await
+                .map_err(|_| IngestError::Stopped("feed writer failed"))??;
+                count += 1;
+            }
+        }
+        Ok(count)
+    }
+    .await
+}

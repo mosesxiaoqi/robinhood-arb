@@ -8,3 +8,5 @@ pub mod assemble;
 pub mod bootstrap;
 pub mod decode;
 pub mod simulation;
+
+pub mod feed;

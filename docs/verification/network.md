@@ -40,3 +40,15 @@ T07 可以实现并在线验证当前区块采集。公开接口存在限额，�
 ## T08 采集闭环验收
 
 CLI 对主网区块 56819909 采集并提交 3 条原始记录，重开 SQLite 核对游标为 56819910。故障测试在第二块写入时触发 SQLite ABORT，确认第一块保留、第二块全部回滚，重启只补采第二块。默认测试共 8 项通过；显式主网测试另行通过。
+
+### T25 Feed 协议与边界
+
+T01 捕获的第一个完整未压缩文本帧保存为 `tests/data/verified/feed-message.json`（manifest 附 SHA-256）。其 JSON `version=1`、首消息 `sequenceNumber=56819749`，内容为 Nitro `message.message.header` 与 base64 `l2Msg`。格式及重连请求头依据 [Nitro 消息结构](https://github.com/OffchainLabs/nitro/blob/master/broadcaster/message/message.go)、[客户端](https://github.com/OffchainLabs/nitro/blob/master/broadcastclient/broadcastclient.go) 和 [服务端头定义](https://github.com/OffchainLabs/nitro/blob/master/wsbroadcastserver/wsbroadcastserver.go)（2026-09-07 核对）。客户端头版本 2 与 JSON 消息版本 1 属于不同层级。
+
+Feed 序号不是区块号，header.blockNumber 是 L1 消息头字段；本实现不据此生成 ChainPosition。每个原始帧保留原字节与本地接收时间；RawRecord.sequence 为持久化帧游标，消息序号保留在 payload 与 feed_seen。重复输入仍保留观测，但按网络/序号/消息摘要去重；同序号冲突整体回滚。缺失区间单独保存在 feed_gaps，不冒充 RPC 区块缺口，也不宣称后续普通回执能够补回首次观测时间。
+
+重连发送最后已持久化的下一消息序号；公共 relay 缓存覆盖未经保证，跳号保留“恢复未核验”缺口。即使晚到消息补齐内容，历史观测缺口仍保留。连接/读超时与重试有界；WebSocket 帧和聚合消息都有大小上限。不协商压缩，拒绝意外扩展，因此没有隐含解压放大。L2 内部消息仍是不透明内容，不解码交易、不验证 sequencer 签名；来源身份为配置来源，缺少服务端 chain header 时不视为密码学身份验证。所有 Feed 执行和确认状态保持 Unknown，完全不进入已确认状态更新管线。
+
+`collect-feed --config <path> --frames <1..10000>` 使用持续连接与逐帧确认写入提供背压，最长 300 秒。失败返回显式 feed disabled 错误；RPC collect/replay 独立可用。运行预算统一保护由 T29 接入，当前命令仅供有限验收。离线 `t25_feed` 覆盖 10→12 缺口、重复/冲突、未知状态与大小上限；公网验收须显式 `cargo test -p arb-adapters --test t25_feed live_feed_acceptance -- --ignored --nocapture`。
+
+2026-09-07 T25 显式 Rust 公网验收通过，读取消息序号 56905363，原帧另存本地 `data/t25-live-feed.json`；未修改 Unknown 语义。随后 CLI 有限接收 3 帧，退出后逐帧数据与 Feed 游标留存在 SQLite。

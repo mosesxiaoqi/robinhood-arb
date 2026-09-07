@@ -32,7 +32,11 @@
     },
     "atomic-expected.json": {
       "sha256": "f6ee3fa71e47242caab53b7e4b08431c581a5e9e62eb574e98edeb3e2faf43ab"
+    },
+    "feed-message.json": {
+      "sha256": "fcfbe122b1307cd54fbaf60d6054ffff933095f1a1d43fee6a57d23e9398953e",
+      "source": "First complete uncompressed text frame from T01 public Feed capture, 2026-09-07T12:04:55Z; sequence 56819749; envelope only, execution unknown"
     }
   },
-  "source_rules": "All observations are actual public RPC responses. Expected values checked against receipt events. No fabricated pool or successful transaction."
+  "source_rules": "Observations are actual public RPC responses or explicitly identified public Feed frames. Expected swap values checked against receipts. Feed envelopes do not prove execution. No fabricated pool or successful transaction."
 }

@@ -25,13 +25,21 @@ async fn run(args: &[String]) -> Result<(), String> {
             let count=collect(&source,&config.database,from,to,config.queue_capacity).await.map_err(|e|e.to_string())?;
             println!("committed {count} complete blocks");Ok(())
         }
+        [command,flag,path,frames_flag,frames] if command=="collect-feed" && flag=="--config" && frames_flag=="--frames" => {
+            let config=load(path)?;
+            let frames=frames.parse().map_err(|_|"invalid frame bound")?;
+            if let Some(parent)=config.database.parent().filter(|p|!p.as_os_str().is_empty()) {fs::create_dir_all(parent).map_err(|_|"cannot create data directory")?;}
+            let source=arb_adapters::feed::FeedSource::new("wss://feed.mainnet.chain.robinhood.com",config.chain_id,config.max_response_bytes,config.timeout_ms,config.retry_limit).map_err(|e|e.to_string())?;
+            let count=arb_app::ingest::collect_feed(&source,&config.database,"feed-cli",frames,std::time::Duration::from_secs(config.window_seconds.min(300))).await.map_err(|e|e.to_string())?;
+            println!("committed {count} feed frames; execution remains unknown");Ok(())
+        }
         [command,mode_flag,mode,config_flag,path,checkpoint_flag,id,to_flag,to] if command=="replay" && mode_flag=="--mode" && matches!(mode.as_str(),"chain"|"observed") && config_flag=="--config" && checkpoint_flag=="--checkpoint" && to_flag=="--to" => {
             let config=load(path)?;let id=id.parse().map_err(|_|"invalid checkpoint id")?;let to=to.parse().map_err(|_|"invalid replay endpoint")?;
             let observed=mode=="observed";
             let count=tokio::task::spawn_blocking(move || arb_app::replay::replay_checkpoint_mode(config,id,to,observed)).await.map_err(|_|"replay worker failed")?.map_err(|e|e.to_string())?;
             println!("replayed {count} candidates (stored historical input only)");Ok(())
         }
-        _=>Err("usage: arb-app check-config --config <path> | collect --config <path> --from <block> --to <block> | replay --mode <chain|observed> --config <path> --checkpoint <id> --to <block>".into()),
+        _=>Err("usage: arb-app check-config --config <path> | collect --config <path> --from <block> --to <block> | collect-feed --config <path> --frames <1..10000> | replay --mode <chain|observed> --config <path> --checkpoint <id> --to <block>".into()),
     }
 }
 #[tokio::main]

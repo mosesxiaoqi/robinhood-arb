@@ -33,6 +33,7 @@ impl Store {
             include_str!("migrations/007.sql"),
             include_str!("migrations/008.sql"),
             include_str!("migrations/009.sql"),
+            include_str!("migrations/010.sql"),
         ];
         if version as usize > migrations.len() {
             return Err(StoreError::Invalid("unsupported database version"));
@@ -642,5 +643,98 @@ impl Store {
             }
         }
         Ok(())
+    }
+}
+
+impl Store {
+    pub fn feed_next_sequence(&self, chain: u64) -> Result<Option<u64>, StoreError> {
+        let value: Option<Option<String>> = self
+            .connection
+            .query_row(
+                "SELECT next_sequence FROM feed_cursors WHERE chain_id=?1",
+                [chain.to_string()],
+                |r| r.get(0),
+            )
+            .optional()?;
+        value
+            .flatten()
+            .map(|s| s.parse().map_err(|_| StoreError::Invalid("feed cursor")))
+            .transpose()
+    }
+    pub fn append_feed(
+        &mut self,
+        packet: &crate::feed::FeedPacket,
+    ) -> Result<crate::feed::FeedCommit, StoreError> {
+        packet.raw.validate()?;
+        if packet.raw.source != "feed"
+            || packet.raw.position.is_some()
+            || packet.raw.execution_status != arb_core::types::ExecutionStatus::Unknown
+        {
+            return Err(StoreError::Invalid("feed observation scope"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let chain = packet.raw.chain_id.to_string();
+        let cursor: Option<(String, Option<String>)> = tx
+            .query_row(
+                "SELECT next_frame,next_sequence FROM feed_cursors WHERE chain_id=?1",
+                [&chain],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()?;
+        let (frame, mut next) = match cursor {
+            Some((f, n)) => (
+                f.parse::<u64>()
+                    .map_err(|_| StoreError::Invalid("feed frame cursor"))?,
+                n.map(|v| {
+                    v.parse::<u64>()
+                        .map_err(|_| StoreError::Invalid("feed sequence cursor"))
+                })
+                .transpose()?,
+            ),
+            None => (0, None),
+        };
+        let mut result = crate::feed::FeedCommit::default();
+        for (sequence, digest) in &packet.messages {
+            let prior: Option<Vec<u8>> = tx
+                .query_row(
+                    "SELECT digest FROM feed_seen WHERE chain_id=?1 AND sequence=?2",
+                    params![chain, sequence.to_string()],
+                    |r| r.get(0),
+                )
+                .optional()?;
+            if let Some(prior) = prior {
+                if prior != digest.as_slice() {
+                    return Err(StoreError::Invalid("feed sequence content conflict"));
+                }
+                result.duplicates += 1;
+                continue;
+            }
+            if let Some(expected) = next
+                && *sequence > expected
+            {
+                result.gaps.push((expected, sequence - 1));
+                tx.execute("INSERT INTO feed_gaps(chain_id,first_sequence,last_sequence,reason) VALUES(?1,?2,?3,'relay did not supply requested sequence; recovery unverified')",params![chain,expected.to_string(),(sequence-1).to_string()])?;
+            }
+            next = Some(
+                next.unwrap_or(0).max(
+                    sequence
+                        .checked_add(1)
+                        .ok_or(StoreError::Invalid("feed sequence overflow"))?,
+                ),
+            );
+            tx.execute(
+                "INSERT INTO feed_seen(chain_id,sequence,digest) VALUES(?1,?2,?3)",
+                params![chain, sequence.to_string(), digest.as_slice()],
+            )?;
+            result.new_messages += 1;
+        }
+        let mut raw = packet.raw.clone();
+        raw.sequence = frame;
+        tx.execute("INSERT INTO raw_records(chain_id,source,run_id,sequence,data) VALUES(?1,'feed',?2,?3,?4)",params![chain,raw.run_id,frame.to_string(),serde_json::to_vec(&raw)?])?;
+        tx.execute("INSERT INTO feed_cursors(chain_id,next_frame,next_sequence) VALUES(?1,?2,?3) ON CONFLICT(chain_id) DO UPDATE SET next_frame=excluded.next_frame,next_sequence=excluded.next_sequence",params![chain,frame.checked_add(1).ok_or(StoreError::Invalid("feed frame overflow"))?.to_string(),next.map(|n|n.to_string())])?;
+        tx.commit()?;
+        Ok(result)
     }
 }

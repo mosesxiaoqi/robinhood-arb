@@ -538,10 +538,10 @@ assert!(!mismatched_result.validates_original_candidate);
 
 **接口：** `FeedSource` 产生 `RawRecord`，复用落盘入口；不向已确认状态管线发送推测池更新。
 
-- [ ] 编写 `feed_gap_is_explicit`：可恢复序号 10 后收到 12，记录缺口；断线重连的重复输入不重复改变交易事实；无回执保持未知。
-- [ ] 运行 `cargo test -p arb-adapters --test t25_feed` 确认失败。
-- [ ] 使用 T01 实际协议，限制消息大小与解压大小、超时和重试；支持补采则补采，不支持则保留不可恢复缺口。日志不暴露认证 URL。
-- [ ] 同一测试通过；公开 Feed 不可用时交付显式禁用状态及证据，不能称 Feed 接入已完成，RPC 主流程仍可运行。
+- [x] 编写 `feed_gap_is_explicit`：可恢复序号 10 后收到 12，记录缺口；断线重连的重复输入不重复改变交易事实；无回执保持未知。
+- [x] 运行 `cargo test -p arb-adapters --test t25_feed` 确认失败。
+- [x] 使用 T01 实际协议，限制消息大小与解压大小、超时和重试；支持补采则补采，不支持则保留不可恢复缺口。日志不暴露认证 URL。
+- [x] 同一测试通过；公开 Feed 不可用时交付显式禁用状态及证据，不能称 Feed 接入已完成，RPC 主流程仍可运行。
 
 ```rust
 assert_eq!(feed_execution_status, ExecutionStatus::Unknown);
