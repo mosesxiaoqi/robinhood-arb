@@ -385,10 +385,10 @@ assert!(routes.iter().all(|route| route.legs.len() == 2));
 
 **接口：** 定义 `CostEstimate`、`Opportunity`；`evaluate(view: &StateView, route: &Route, amount: U256, costs: &CostEstimate) -> Result<Opportunity, EvaluateError>`。
 
-- [ ] 编写 `subtract_cost_once`：输入 100，闭环输出 110，额外同资产成本 3，净收益为 7；额外成本未知时净收益为未知；输出低于投入不能无符号下溢。
-- [ ] 运行 `cargo test -p arb-core --test t17_evaluate` 确认失败。
-- [ ] 将前腿输出作为后腿输入，复用同一视图；收益使用符号加绝对值或已检查有符号表示。Gas 不是报价资产时须显式换算依据，否则收益未知。
-- [ ] 同一测试通过；遍历配置金额，记录深度阈值和排除原因；费用已包含项不再次扣除，估计值保留估计标签。
+- [x] 编写 `subtract_cost_once`：输入 100，闭环输出 110，额外同资产成本 3，净收益为 7；额外成本未知时净收益为未知；输出低于投入不能无符号下溢。
+- [x] 运行 `cargo test -p arb-core --test t17_evaluate` 确认失败。
+- [x] 将前腿输出作为后腿输入，复用同一视图；收益使用符号加绝对值或已检查有符号表示。Gas 不是报价资产时须显式换算依据，否则收益未知。
+- [x] 同一测试通过；遍历配置金额，记录深度阈值和排除原因；费用已包含项不再次扣除，估计值保留估计标签。
 
 ```rust
 assert_eq!(net_profit, Some(expected_positive_seven));

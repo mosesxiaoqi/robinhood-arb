@@ -113,21 +113,7 @@ pub fn quote(pool: &PoolState, asset_in: Address, amount_in: U256) -> Result<Quo
         return Err(QuoteError::InvalidState);
     }
     let zero_for_one = asset_in == p.currency0;
-    let compressed = pool.tick.div_euclid(p.tick_spacing) + i32::from(!zero_for_one);
-    let word = compressed.div_euclid(256);
-    let bit = compressed.rem_euclid(256) as usize;
-    let bitmap = pool
-        .tick_bitmap
-        .get(&(word as i16))
-        .ok_or(QuoteError::TickBoundary)?;
-    let boundary_bit = if zero_for_one {
-        (0..=bit).rev().find(|b| bitmap.bit(*b)).unwrap_or(0)
-    } else {
-        (bit..256).find(|b| bitmap.bit(*b)).unwrap_or(255)
-    };
-    let boundary_tick =
-        ((word * 256 + boundary_bit as i32) * p.tick_spacing).clamp(-887272, 887272);
-    let boundary = U512::from(sqrt_at_tick(boundary_tick)?);
+    let boundary = U512::from(tick_boundary(pool, zero_for_one)?);
     let price = U512::from(pool.sqrt_price_x96);
     let liquidity = U512::from(pool.liquidity);
     let amount = U512::from(amount_in);
@@ -172,4 +158,49 @@ pub fn quote(pool: &PoolState, asset_in: Address, amount_in: U256) -> Result<Quo
         included_hook_fee: narrow(hook_fee)?,
         included_creator_tax: narrow(creator_tax)?,
     })
+}
+
+fn tick_boundary(pool: &PoolState, zero_for_one: bool) -> Result<U256, QuoteError> {
+    let p = &pool.descriptor;
+    if p.tick_spacing <= 0 || p.tick_spacing > 32767 || !(-887272..=887272).contains(&pool.tick) {
+        return Err(QuoteError::InvalidState);
+    }
+    let compressed = pool.tick.div_euclid(p.tick_spacing) + i32::from(!zero_for_one);
+    let word = compressed.div_euclid(256);
+    let bit = compressed.rem_euclid(256) as usize;
+    let bitmap = pool
+        .tick_bitmap
+        .get(&(word as i16))
+        .ok_or(QuoteError::TickBoundary)?;
+    let boundary_bit = if zero_for_one {
+        (0..=bit).rev().find(|b| bitmap.bit(*b)).unwrap_or(0)
+    } else {
+        (bit..256).find(|b| bitmap.bit(*b)).unwrap_or(255)
+    };
+    let boundary_tick =
+        ((word * 256 + boundary_bit as i32) * p.tick_spacing).clamp(-887272, 887272);
+    sqrt_at_tick(boundary_tick)
+}
+/// Conservative capacity in quote units inside the proven local interval, both directions.
+pub fn quote_depth(pool: &PoolState, asset: Address) -> Result<U256, QuoteError> {
+    use alloy_primitives::U512;
+    // Reuse protocol/state validation, even when the one-unit output rounds to zero.
+    quote(pool, asset, U256::from(1))?;
+    let lower = U512::from(tick_boundary(pool, true)?);
+    let upper = U512::from(tick_boundary(pool, false)?);
+    let price = U512::from(pool.sqrt_price_x96);
+    if lower >= price || upper <= price {
+        return Err(QuoteError::TickBoundary);
+    }
+    let l = U512::from(pool.liquidity);
+    let q96: U512 = U512::from(1) << 96;
+    let (a, b) = if asset == pool.descriptor.currency0 {
+        (
+            l * q96 * (price - lower) / price / lower,
+            l * q96 * (upper - price) / upper / price,
+        )
+    } else {
+        (l * (price - lower) / q96, l * (upper - price) / q96)
+    };
+    narrow(a.min(b))
 }
