@@ -33,13 +33,20 @@ async fn run(args: &[String]) -> Result<(), String> {
             let count=arb_app::ingest::collect_feed(&source,&config.database,"feed-cli",frames,std::time::Duration::from_secs(config.window_seconds.min(300))).await.map_err(|e|e.to_string())?;
             println!("committed {count} feed frames; execution remains unknown");Ok(())
         }
+        [command,config_flag,path,run_flag,id,out_flag,out,rest @ ..] if command=="report" && config_flag=="--config" && run_flag=="--run" && out_flag=="--out" => {
+            let config=load(path)?;
+            let range=match rest {[]=>None,[a,from,b,to] if a=="--from" && b=="--to"=>Some((from.parse().map_err(|_|"invalid --from")?,to.parse().map_err(|_|"invalid --to")?)),_=>return Err("invalid report range".into())};
+            let id=id.clone();let out=std::path::PathBuf::from(out);
+            tokio::task::spawn_blocking(move || arb_app::report::export_report(&config.database,&id,&out,range)).await.map_err(|_|"report worker failed")??;
+            println!("report exported: 只读模拟，非真实成交");Ok(())
+        }
         [command,mode_flag,mode,config_flag,path,checkpoint_flag,id,to_flag,to] if command=="replay" && mode_flag=="--mode" && matches!(mode.as_str(),"chain"|"observed") && config_flag=="--config" && checkpoint_flag=="--checkpoint" && to_flag=="--to" => {
             let config=load(path)?;let id=id.parse().map_err(|_|"invalid checkpoint id")?;let to=to.parse().map_err(|_|"invalid replay endpoint")?;
             let observed=mode=="observed";
             let count=tokio::task::spawn_blocking(move || arb_app::replay::replay_checkpoint_mode(config,id,to,observed)).await.map_err(|_|"replay worker failed")?.map_err(|e|e.to_string())?;
             println!("replayed {count} candidates (stored historical input only)");Ok(())
         }
-        _=>Err("usage: arb-app check-config --config <path> | collect --config <path> --from <block> --to <block> | collect-feed --config <path> --frames <1..10000> | replay --mode <chain|observed> --config <path> --checkpoint <id> --to <block>".into()),
+        _=>Err("usage: arb-app check-config --config <path> | collect --config <path> --from <block> --to <block> | report --config <path> --run <id> --out <new-directory> [--from <block> --to <block>] | collect-feed --config <path> --frames <1..10000> | replay --mode <chain|observed> --config <path> --checkpoint <id> --to <block>".into()),
     }
 }
 #[tokio::main]

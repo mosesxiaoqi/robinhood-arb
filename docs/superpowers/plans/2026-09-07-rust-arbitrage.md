@@ -598,10 +598,12 @@ assert!(!incomplete_facts_attribution.complete);
 
 **接口：** CLI `report --config <path> --run <id> --out <directory>`；research 向 `std::io::Write` 输出 Markdown 与 CSV，app 负责文件路径和读取。
 
-- [ ] 编写 `report_preserves_unknown_and_coverage`：零机会、模拟不可用、数据缺口都可导出；包含逗号/引号的文本符合 CSV 转义。
-- [ ] 运行 `cargo test -p arb-app --test t28_report` 确认失败。
-- [ ] 输出覆盖区间、采样参数、版本、机会/容量、模拟状态分布、延迟和钱包证据；分页或按窗口处理，避免无界读全库，分析使用独立读连接。
-- [ ] 同一测试通过；写入失败不留下冒充完成的报告，采用临时文件成功后替换；报告显著标明“只读模拟，非真实成交”。
+实现限制：可用 `--from/--to` 选择最多 10,000 块窗口；分页扫描最多 100,000 行，选中序列化数据最多 64 MiB，超限显式失败。导出固定 WAL 只读快照；完成文件放入临时目录后原子重命名到全新输出目录，已有报告不覆盖。CSV 保留各模拟候选关联、时刻和单调耗时；孤块钱包事实不进入有效报告。
+
+- [x] 编写 `report_preserves_unknown_and_coverage`：零机会、模拟不可用、数据缺口都可导出；包含逗号/引号的文本符合 CSV 转义。
+- [x] 运行 `cargo test -p arb-app --test t28_report` 确认失败。
+- [x] 输出覆盖区间、采样参数、版本、机会/容量、模拟状态分布、延迟和钱包证据；分页或按窗口处理，避免无界读全库，分析使用独立读连接。
+- [x] 同一测试通过；写入失败不留下冒充完成的报告，采用临时文件成功后替换；报告显著标明“只读模拟，非真实成交”。
 
 ```rust
 assert!(markdown.contains("只读模拟，非真实成交"));

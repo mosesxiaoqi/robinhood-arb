@@ -759,3 +759,111 @@ impl Store {
         Ok(())
     }
 }
+
+#[derive(Clone, Copy)]
+pub enum ReportTable {
+    Blocks,
+    Simulations,
+    Wallets,
+}
+impl Store {
+    /// Read-only transaction pins one WAL snapshot for every section of a report.
+    pub fn open_report(path: &Path) -> Result<Self, StoreError> {
+        let connection =
+            Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+        connection.busy_timeout(Duration::from_secs(5))?;
+        connection.execute_batch("BEGIN DEFERRED")?;
+        let version: u32 = connection.pragma_query_value(None, "user_version", |r| r.get(0))?;
+        if version != 11 {
+            return Err(StoreError::Invalid("report requires current schema"));
+        }
+        Ok(Self { connection })
+    }
+    pub fn report_bounds(&self, run: &str) -> Result<Option<(u64, u64)>, StoreError> {
+        let mut bounds = vec![];
+        for sql in [
+            "SELECT block_number FROM derived_blocks WHERE run_id=?1 ORDER BY length(block_number),block_number LIMIT 1",
+            "SELECT block_number FROM derived_blocks WHERE run_id=?1 ORDER BY length(block_number) DESC,block_number DESC LIMIT 1",
+        ] {
+            let value: Option<String> = self
+                .connection
+                .query_row(sql, [run], |r| r.get(0))
+                .optional()?;
+            let Some(value) = value else { return Ok(None) };
+            bounds.push(
+                value
+                    .parse()
+                    .map_err(|_| StoreError::Invalid("report block number"))?,
+            );
+        }
+        Ok(Some((bounds[0], bounds[1])))
+    }
+    pub fn read_report_page(
+        &self,
+        table: ReportTable,
+        run: &str,
+        after: u64,
+    ) -> Result<Vec<(u64, serde_json::Value)>, StoreError> {
+        let sql = match table {
+            ReportTable::Blocks => {
+                "SELECT id,data,length(data),canonical,0 FROM derived_blocks WHERE run_id=?1 AND id>?2 ORDER BY id LIMIT 100"
+            }
+            ReportTable::Simulations => {
+                "SELECT id,data,length(data),canonical,validates_original FROM simulations WHERE run_id=?1 AND id>?2 ORDER BY id LIMIT 100"
+            }
+            ReportTable::Wallets => {
+                "SELECT id,data,length(data),0,0 FROM wallet_facts WHERE run_id=?1 AND id>?2 ORDER BY id LIMIT 100"
+            }
+        };
+        let mut statement = self.connection.prepare(sql)?;
+        let mut rows = statement.query(params![
+            run,
+            i64::try_from(after).map_err(|_| StoreError::Invalid("report cursor"))?
+        ])?;
+        let mut output = vec![];
+        let mut bytes = 0;
+        while let Some(row) = rows.next()? {
+            let size: i64 = row.get(2)?;
+            if !(0..=67108864).contains(&size) {
+                return Err(StoreError::Invalid("report record budget"));
+            }
+            if bytes + size > 67108864 {
+                break;
+            }
+            bytes += size;
+            let data: Vec<u8> = row.get(1)?;
+            let mut value: serde_json::Value = serde_json::from_slice(&data)?;
+            if !matches!(table, ReportTable::Wallets) {
+                value["canonical"] = row.get::<_, bool>(3)?.into();
+            }
+            if matches!(table, ReportTable::Blocks)
+                && let Some(candidates) = value["candidates"].as_array_mut()
+            {
+                for c in candidates {
+                    c["canonical"] = row.get::<_, bool>(3)?.into();
+                }
+            }
+            if matches!(table, ReportTable::Simulations) {
+                value["validates_original_candidate"] = row.get::<_, bool>(4)?.into();
+            }
+            output.push((row.get::<_, i64>(0)? as u64, value));
+        }
+        Ok(output)
+    }
+    pub fn report_gap_counts(
+        &self,
+        chain: u64,
+        from: u64,
+        to: u64,
+    ) -> Result<(u64, u64), StoreError> {
+        let from = i64::try_from(from).map_err(|_| StoreError::Invalid("report range"))?;
+        let to = i64::try_from(to).map_err(|_| StoreError::Invalid("report range"))?;
+        let rpc:i64=self.connection.query_row("SELECT count(*) FROM ingest_gaps WHERE chain_id=?1 AND resolved=0 AND CAST(block_number AS INTEGER) BETWEEN ?2 AND ?3",params![chain.to_string(),from,to],|r|r.get(0))?;
+        let feed: i64 = self.connection.query_row(
+            "SELECT count(*) FROM feed_gaps WHERE chain_id=?1",
+            [chain.to_string()],
+            |r| r.get(0),
+        )?;
+        Ok((rpc as u64, feed as u64))
+    }
+}

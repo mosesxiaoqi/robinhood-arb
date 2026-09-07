@@ -3,4 +3,5 @@ pub mod ingest;
 pub mod pipeline;
 pub mod recovery;
 pub mod replay;
+pub mod report;
 pub mod simulation_queue;
