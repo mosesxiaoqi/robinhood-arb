@@ -37,6 +37,7 @@ pub fn block(number: u64, parent: B256) -> Vec<RawRecord> {
         run_id: "fixed".into(),
         sequence: number * 10 + i as u64,
         received_at_ms: number * 100 + i as u64,
+        request_elapsed_ns: None,
         kind: kind.into(),
         position: Some(ChainPosition {
             block_number: number,

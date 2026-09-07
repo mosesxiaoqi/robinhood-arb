@@ -81,6 +81,7 @@ async fn reject_wrong_chain_and_partial_block() {
         .await
         .unwrap();
     assert_eq!(records.len(), 3);
+    assert!(records.iter().all(|r| r.request_elapsed_ns.is_some()));
     assert_eq!(records[0].position.as_ref().unwrap().block_number, number);
 }
 
@@ -108,4 +109,5 @@ async fn verified_mainnet_block() {
         expected["hash"].as_str().unwrap()
     );
     assert_eq!(records.len(), 3);
+    assert!(records.iter().all(|r| r.request_elapsed_ns.is_some()));
 }

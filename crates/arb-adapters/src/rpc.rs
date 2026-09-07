@@ -44,6 +44,7 @@ struct Reply {
     bytes: Vec<u8>,
     id: u64,
     received_at_ms: u64,
+    elapsed_ns: u64,
 }
 pub struct RpcSource {
     client: Client,
@@ -130,6 +131,7 @@ impl RpcSource {
     }
 
     async fn send(&self, request: &Request<Value>, id: u64) -> Result<Reply, SourceError> {
+        let started = Instant::now();
         let mut response = self
             .client
             .post(self.endpoint.clone())
@@ -170,6 +172,11 @@ impl RpcSource {
                 bytes,
                 id,
                 received_at_ms,
+                elapsed_ns: started
+                    .elapsed()
+                    .as_nanos()
+                    .try_into()
+                    .map_err(|_| SourceError::Invalid("elapsed time overflow"))?,
             }),
             ResponsePayload::Failure(error) => Err(SourceError::Rpc(error.code)),
         }
@@ -220,6 +227,7 @@ impl RpcSource {
                 run_id: self.options.run_id.clone(),
                 sequence: reply.id,
                 received_at_ms: reply.received_at_ms,
+                request_elapsed_ns: Some(reply.elapsed_ns),
                 kind: kind.into(),
                 position: Some(position.clone()),
                 transaction_hash: None,

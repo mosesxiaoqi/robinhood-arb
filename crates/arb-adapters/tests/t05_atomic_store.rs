@@ -9,6 +9,7 @@ fn raw(n: u64, source: &str) -> RawRecord {
         run_id: "test".into(),
         sequence: n,
         received_at_ms: n,
+        request_elapsed_ns: None,
         kind: "block".into(),
         position: None,
         transaction_hash: None,

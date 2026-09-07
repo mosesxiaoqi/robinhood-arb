@@ -8,6 +8,7 @@ fn sample() -> RawRecord {
         run_id: "test".into(),
         sequence: 1,
         received_at_ms: 10,
+        request_elapsed_ns: None,
         kind: "message".into(),
         position: None,
         transaction_hash: Some(B256::repeat_byte(1)),

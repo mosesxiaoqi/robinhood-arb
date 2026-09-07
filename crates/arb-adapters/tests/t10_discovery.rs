@@ -16,6 +16,7 @@ fn register_verified_pool_once() {
         run_id: "test".into(),
         sequence: 1,
         received_at_ms: 1,
+        request_elapsed_ns: None,
         kind: "receipts".into(),
         position: Some(ChainPosition {
             block_number: u64::from_str_radix(

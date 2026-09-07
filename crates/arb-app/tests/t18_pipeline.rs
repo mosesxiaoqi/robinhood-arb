@@ -23,6 +23,7 @@ fn persist_candidate_provenance() {
         run_id: "raw-run".into(),
         sequence: 1,
         received_at_ms: 10,
+        request_elapsed_ns: None,
         kind: "block".into(),
         position: Some(position.clone()),
         transaction_hash: None,

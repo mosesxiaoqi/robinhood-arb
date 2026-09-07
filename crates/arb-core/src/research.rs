@@ -66,6 +66,10 @@ pub struct RouteExclusions {
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DerivedBlock {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub time_quality: Option<TimeQuality>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub timings: Vec<StageTiming>,
     pub run_id: String,
     pub view_id: B256,
     pub batch: BlockBatch,
@@ -73,4 +77,18 @@ pub struct DerivedBlock {
     pub candidates: Vec<Candidate>,
     pub exclusions: Vec<RouteExclusions>,
     pub excluded_pools: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StageTiming {
+    pub run_id: String,
+    pub stage: String,
+    pub recorded_at_ms: u64,
+    pub elapsed_ns: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TimeQuality {
+    pub clock_regressions: usize,
+    pub multiple_clock_domains: bool,
 }

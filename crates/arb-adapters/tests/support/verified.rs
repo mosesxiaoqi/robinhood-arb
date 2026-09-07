@@ -13,6 +13,7 @@ pub fn receipt() -> RawRecord {
         run_id: "verified".into(),
         sequence: 1,
         received_at_ms: 1,
+        request_elapsed_ns: None,
         kind: "receipts".into(),
         position: Some(ChainPosition {
             block_number: u64::from_str_radix(

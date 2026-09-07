@@ -19,6 +19,7 @@ pub struct Pipeline {
     store: Store,
     state: State,
     run: RunSpec,
+    time_quality: Option<arb_core::research::TimeQuality>,
 }
 impl Pipeline {
     pub fn new(mut store: Store, state: State, run: RunSpec) -> Result<Self, PipelineError> {
@@ -26,7 +27,15 @@ impl Pipeline {
             .validate()
             .map_err(|_| PipelineError::Invalid("state"))?;
         store.register_run(&run)?;
-        Ok(Self { store, state, run })
+        Ok(Self {
+            store,
+            state,
+            run,
+            time_quality: None,
+        })
+    }
+    pub fn set_time_quality(&mut self, quality: arb_core::research::TimeQuality) {
+        self.time_quality = Some(quality);
     }
     pub fn view(&self) -> StateView {
         self.state.view()
@@ -34,11 +43,61 @@ impl Pipeline {
     pub fn store(&self) -> &Store {
         &self.store
     }
+
+    pub fn process_records(
+        &mut self,
+        records: &[arb_core::types::RawRecord],
+        observed_at: u64,
+    ) -> Result<Vec<Opportunity>, PipelineError> {
+        let started = std::time::Instant::now();
+        let pools = self
+            .view()
+            .pools
+            .into_iter()
+            .map(|p| p.descriptor)
+            .collect::<Vec<_>>();
+        let batch = arb_adapters::assemble::assemble_block(records, &pools)
+            .map_err(|_| PipelineError::Invalid("raw block assembly"))?;
+        let timing = self.timing("decode", started)?;
+        self.process_timed(batch, observed_at, vec![timing])
+    }
     pub fn process(
         &mut self,
         batch: BlockBatch,
         observed_at: u64,
     ) -> Result<Vec<Opportunity>, PipelineError> {
+        self.process_timed(batch, observed_at, vec![])
+    }
+    fn timing(
+        &self,
+        stage: &str,
+        start: std::time::Instant,
+    ) -> Result<arb_core::research::StageTiming, PipelineError> {
+        let recorded_at_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_| PipelineError::Invalid("UTC clock"))?
+            .as_millis()
+            .try_into()
+            .map_err(|_| PipelineError::Invalid("UTC overflow"))?;
+        let elapsed_ns = start
+            .elapsed()
+            .as_nanos()
+            .try_into()
+            .map_err(|_| PipelineError::Invalid("elapsed time overflow"))?;
+        Ok(arb_core::research::StageTiming {
+            run_id: self.run.run_id.clone(),
+            stage: stage.into(),
+            recorded_at_ms,
+            elapsed_ns,
+        })
+    }
+    fn process_timed(
+        &mut self,
+        batch: BlockBatch,
+        observed_at: u64,
+        mut timings: Vec<arb_core::research::StageTiming>,
+    ) -> Result<Vec<Opportunity>, PipelineError> {
+        let started = std::time::Instant::now();
         use alloy_primitives::keccak256;
         use arb_core::{
             opportunity::scan,
@@ -64,6 +123,8 @@ impl Pipeline {
                 .map(|c| c.opportunity)
                 .collect());
         }
+        timings.push(self.timing("state", started)?);
+        let quote_started = std::time::Instant::now();
         let view_id = keccak256(serde_json::to_vec(&view)?);
         let routes = route_candidates(
             &view
@@ -74,6 +135,8 @@ impl Pipeline {
             self.run.quote_asset,
         );
         let mut block = DerivedBlock {
+            time_quality: self.time_quality.clone(),
+            timings,
             run_id: self.run.run_id.clone(),
             view_id,
             batch,
@@ -116,6 +179,7 @@ impl Pipeline {
                 entries: scanned.excluded,
             });
         }
+        block.timings.push(self.timing("quote", quote_started)?);
         self.store.save_derived(&block)?;
         self.state = next;
         Ok(block

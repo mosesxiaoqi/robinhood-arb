@@ -440,10 +440,10 @@ assert_eq!(replayed_core_results, live_core_results);
 
 **接口：** CLI `replay --mode observed ...`；输入按 `(received_at, persisted_id)` 提供，处理管线继续使用链位置协调状态。
 
-- [ ] 编写 `late_receipt_stays_unknown`：10 时收到调用，20 时收到回执；逻辑时间 15 时结果未知，20 时才可更新执行状态。
-- [ ] 运行 `cargo test -p arb-app --test t20_observed_replay` 确认失败。
-- [ ] 逻辑时间显式推进，无真实 sleep；实时采集/解析/报价/模拟耗时使用本进程单调时钟，持久化 UTC 和运行标识。不跨运行计算单调时间差。
-- [ ] 同一测试通过；本机历史时钟倒退或来源时间不可比较时标记时间质量问题，不制造负延迟统计。
+- [x] 编写 `late_receipt_stays_unknown`：10 时收到调用，20 时收到回执；逻辑时间 15 时结果未知，20 时才可更新执行状态。
+- [x] 运行 `cargo test -p arb-app --test t20_observed_replay` 确认失败。
+- [x] 逻辑时间显式推进，无真实 sleep；实时采集/解析/报价/模拟耗时使用本进程单调时钟，持久化 UTC 和运行标识。不跨运行计算单调时间差。
+- [x] 同一测试通过；本机历史时钟倒退或来源时间不可比较时标记时间质量问题，不制造负延迟统计。
 
 ```rust
 assert_eq!(status_at_15, ExecutionStatus::Unknown);

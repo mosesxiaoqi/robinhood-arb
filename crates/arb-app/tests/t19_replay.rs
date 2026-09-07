@@ -50,13 +50,25 @@ fn replay_matches_live_core_results() {
     let mut live = Pipeline::new(store, state.clone(), run.clone()).unwrap();
     let mut expected = vec![];
     for number in 2..=4 {
-        let batch = assemble_block(
-            &support::block(number, B256::repeat_byte((number - 1) as u8)),
-            &pools,
-        )
-        .unwrap();
-        expected.extend(live.process(batch, number * 100 + 2).unwrap());
+        expected.extend(
+            live.process_records(
+                &support::block(number, B256::repeat_byte((number - 1) as u8)),
+                number * 100 + 2,
+            )
+            .unwrap(),
+        );
     }
+    let saved = live
+        .store()
+        .find_derived("live", B256::repeat_byte(4))
+        .unwrap()
+        .unwrap();
+    assert!(
+        saved
+            .timings
+            .iter()
+            .any(|t| t.stage == "decode" && t.run_id == "live" && t.recorded_at_ms > 0)
+    );
     let checkpoint = arb_core::checkpoint::Checkpoint {
         research_run_id: Some(run.run_id.clone()),
         version: 1,
@@ -80,6 +92,20 @@ fn replay_matches_live_core_results() {
     assert_eq!(actual, expected);
     assert_eq!(replay.view(), live.view());
     assert!(replay_chain(&mut replay, 5).is_err());
+    let mut observed_run = reopened.load_run("live").unwrap();
+    observed_run.run_id = "observed".into();
+    let mut observed =
+        Pipeline::new(Store::open(&path).unwrap(), checkpoint.state, observed_run).unwrap();
+    let report = arb_app::replay::replay_observed(&mut observed, 0, 4).unwrap();
+    assert_eq!(report.opportunities, expected);
+    assert_eq!(report.clock_regressions, 0);
+    assert!(!report.multiple_clock_domains);
+    let saved = observed
+        .store()
+        .find_derived("observed", B256::repeat_byte(4))
+        .unwrap()
+        .unwrap();
+    assert_eq!(saved.time_quality.unwrap().clock_regressions, 0);
     let mut partial = support::block(5, B256::repeat_byte(4));
     partial.pop();
     assert!(assemble_block(&partial, &pools).is_err());

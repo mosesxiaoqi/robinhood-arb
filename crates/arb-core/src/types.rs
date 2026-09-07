@@ -32,6 +32,9 @@ pub struct RawRecord {
     pub run_id: String,
     pub sequence: u64,
     pub received_at_ms: u64,
+    /// Monotonic duration of this successful RPC request, scoped to run_id.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_elapsed_ns: Option<u64>,
     pub kind: String,
     pub position: Option<ChainPosition>,
     pub transaction_hash: Option<B256>,

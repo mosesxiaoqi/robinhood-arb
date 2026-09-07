@@ -15,6 +15,7 @@ fn paginate_without_skip() {
             run_id: "test".into(),
             sequence: n,
             received_at_ms: 10,
+            request_elapsed_ns: None,
             kind: "message".into(),
             position: None,
             transaction_hash: None,

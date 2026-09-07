@@ -45,3 +45,5 @@ cargo run -p arb-app -- collect --config /path/to/config.toml --from 56819909 --
 验证：`cargo test --workspace` 和 `cargo clippy --workspace --all-targets -- -D warnings`。默认测试不访问公网，但 RPC 测试需要绑定本机回环端口。
 
 链状态重放：`cargo run -p arb-app -- replay --mode chain --config /path/to/config.toml --checkpoint 1 --to 56819920`。检查点须关联已保存研究运行，研究参数及算法版本须匹配。重放只读取本地原始记录；缺失完整区块或分叉不明确时失败，不调用最新 RPC 补出历史状态。
+
+观察过程重放将 `--mode chain` 改成 `--mode observed`。它按 `(本机接收时间, 持久化 ID)` 推进逻辑时钟，等完整区块输入到齐后才发布状态；回执到达前交易结果为未知。当前单次观察窗口限制为 64 MiB / 100000 条输入，超限应拆分窗口。时钟倒退与多运行/来源时钟域会写入派生结果的时间质量标记。
