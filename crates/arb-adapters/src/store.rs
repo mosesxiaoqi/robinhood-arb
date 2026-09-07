@@ -32,6 +32,7 @@ impl Store {
             include_str!("migrations/006.sql"),
             include_str!("migrations/007.sql"),
             include_str!("migrations/008.sql"),
+            include_str!("migrations/009.sql"),
         ];
         if version as usize > migrations.len() {
             return Err(StoreError::Invalid("unsupported database version"));
@@ -47,7 +48,8 @@ impl Store {
             }
         }
         if (version as usize) < migrations.len() {
-            let tx = connection.transaction()?;
+            let tx =
+                connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
             for migration in &migrations[version as usize..] {
                 tx.execute_batch(migration)?;
             }
@@ -84,7 +86,9 @@ impl Store {
         if records.is_empty() || cursor.chain_id == 0 || cursor.source.is_empty() {
             return Err(StoreError::Invalid("empty batch or invalid cursor"));
         }
-        let tx = self.connection.transaction()?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         let previous: Option<Vec<u8>> = tx
             .query_row(
                 "SELECT data FROM source_cursors WHERE chain_id=?1 AND source=?2",
@@ -210,7 +214,9 @@ impl Store {
         &mut self,
         pools: &[arb_core::types::PoolDescriptor],
     ) -> Result<(), StoreError> {
-        let tx = self.connection.transaction()?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         for pool in pools {
             tx.execute(
                 "INSERT INTO pool_registry(key,data) VALUES(?1,?2) ON CONFLICT(key) DO NOTHING",
@@ -299,7 +305,9 @@ impl Store {
     pub fn register_run(&mut self, run: &arb_core::research::RunSpec) -> Result<(), StoreError> {
         run.validate()?;
         let bytes = serde_json::to_vec(run)?;
-        let tx = self.connection.transaction()?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         let existing: Option<Vec<u8>> = tx
             .query_row(
                 "SELECT data FROM research_runs WHERE run_id=?1",
@@ -334,7 +342,9 @@ impl Store {
         {
             return Err(StoreError::Invalid("derived block scope or size"));
         }
-        let tx = self.connection.transaction()?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         let _: Vec<u8> = tx.query_row(
             "SELECT data FROM research_runs WHERE run_id=?1",
             [&block.run_id],
@@ -471,7 +481,9 @@ impl Store {
         if data.len() > 64 * 1024 * 1024 || orphans.len() > 4096 {
             return Err(StoreError::Invalid("recovery budget"));
         }
-        let tx = self.connection.transaction()?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         let prior: Option<(Vec<u8>, String)> = tx
             .query_row(
                 "SELECT data,status FROM recovery_jobs WHERE id=?1",
@@ -503,6 +515,7 @@ impl Store {
             )?;
         }
         for hash in orphans {
+            tx.execute("UPDATE simulations SET canonical=0,validates_original=0 WHERE run_id=?1 AND block_hash=?2",params![run,hash.to_string()])?;
             tx.execute(
                 "UPDATE derived_blocks SET canonical=0 WHERE run_id=?1 AND block_hash=?2",
                 params![run, hash.to_string()],
@@ -527,5 +540,107 @@ impl Store {
             [id.to_string()],
             |r| r.get(0),
         )?)
+    }
+}
+
+impl Store {
+    pub fn insert_simulation(
+        &mut self,
+        record: &arb_core::simulation::SimulationRecord,
+    ) -> Result<bool, StoreError> {
+        let data = serde_json::to_vec(record)?;
+        if data.len() > 67108864 {
+            return Err(StoreError::Invalid("simulation record budget"));
+        }
+        Ok(self.connection.execute("INSERT INTO simulations(job_id,queue_id,run_id,block_hash,phase,canonical,validates_original,data) VALUES(?1,?2,?3,?4,?5,0,0,?6) ON CONFLICT(job_id) DO NOTHING",params![record.id.to_string(),record.queue_id,record.run_id,record.expected_position.block_hash.to_string(),format!("{:?}",record.phase),data])?==1)
+    }
+    pub fn save_simulation(
+        &mut self,
+        record: &mut arb_core::simulation::SimulationRecord,
+    ) -> Result<(), StoreError> {
+        let tx = self
+            .connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let phase: String = tx.query_row(
+            "SELECT phase FROM simulations WHERE job_id=?1",
+            [record.id.to_string()],
+            |r| r.get(0),
+        )?;
+        if phase == "Interrupted" {
+            return Ok(());
+        }
+        let block: Option<(Vec<u8>, bool)> = tx
+            .query_row(
+                "SELECT data,canonical FROM derived_blocks WHERE run_id=?1 AND block_hash=?2",
+                params![
+                    record.run_id,
+                    record.expected_position.block_hash.to_string()
+                ],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()?;
+        record.canonical = false;
+        record.validates_original_candidate = false;
+        if let Some((bytes, canonical)) = block {
+            let block: arb_core::research::DerivedBlock = serde_json::from_slice(&bytes)?;
+            let pending: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM recovery_jobs WHERE run_id=?1 AND status='pending')",
+                [&record.run_id],
+                |r| r.get(0),
+            )?;
+            if let Some(mut candidate) = block
+                .candidates
+                .into_iter()
+                .find(|c| c.id == record.candidate_id && c.view_id == record.view_id)
+            {
+                candidate.canonical = canonical && !pending;
+                record.canonical = candidate.canonical;
+                record.validates_original_candidate =
+                    record.result.as_ref().is_some_and(|result| {
+                        arb_core::simulation::validates_candidate(&candidate, result)
+                    });
+            }
+        }
+        let data = serde_json::to_vec(record)?;
+        if data.len() > 67108864 {
+            return Err(StoreError::Invalid("simulation record budget"));
+        }
+        tx.execute("UPDATE simulations SET phase=?1,canonical=?2,validates_original=?3,data=?4 WHERE job_id=?5",params![format!("{:?}",record.phase),record.canonical,record.validates_original_candidate,data,record.id.to_string()])?;
+        tx.commit()?;
+        Ok(())
+    }
+    pub fn load_simulation(
+        &self,
+        id: alloy_primitives::B256,
+    ) -> Result<arb_core::simulation::SimulationRecord, StoreError> {
+        let (data,canonical,validates):(Vec<u8>,bool,bool)=self.connection.query_row("SELECT data,canonical,validates_original FROM simulations WHERE job_id=?1 AND length(data)<=67108864",[id.to_string()],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?;
+        let mut record: arb_core::simulation::SimulationRecord = serde_json::from_slice(&data)?;
+        record.canonical = canonical;
+        record.validates_original_candidate = validates;
+        Ok(record)
+    }
+    pub fn interrupt_simulations(&mut self, queue: &str, ended: u64) -> Result<(), StoreError> {
+        loop {
+            let records = {
+                let mut statement=self.connection.prepare("SELECT data FROM simulations WHERE queue_id=?1 AND phase IN ('Queued','Running') LIMIT 100")?;
+                statement
+                    .query_map([queue], |r| r.get::<_, Vec<u8>>(0))?
+                    .collect::<Result<Vec<_>, _>>()?
+            };
+            if records.is_empty() {
+                break;
+            }
+            for bytes in records {
+                let mut record: arb_core::simulation::SimulationRecord =
+                    serde_json::from_slice(&bytes)?;
+                record.phase = arb_core::simulation::SimulationPhase::Interrupted;
+                record.outcome = arb_core::simulation::SimulationOutcome::Unknown;
+                record.ended_at_ms = Some(ended);
+                record.error = Some("queue stopped before completion".into());
+                record.validates_original_candidate = false;
+                self.connection.execute("UPDATE simulations SET phase='Interrupted',validates_original=0,data=?1 WHERE job_id=?2 AND phase IN ('Queued','Running')",params![serde_json::to_vec(&record)?,record.id.to_string()])?;
+            }
+        }
+        Ok(())
     }
 }

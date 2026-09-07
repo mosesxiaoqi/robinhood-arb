@@ -520,10 +520,10 @@ assert_eq!(reverted_result.asset_changes, expected_rolled_back_changes);
 
 **接口：** 有界候选队列输入 `Opportunity`，输出按候选 ID 关联的 `SimulationResult`；模拟不占用状态写任务。
 
-- [ ] 编写 `timeout_does_not_block_state`：模拟任务超时期间仍处理下一个完整块；状态不匹配结果不能成为原候选通过证据。
-- [ ] 运行 `cargo test -p arb-app --test t24_simulation_queue` 确认失败。
-- [ ] 限制并发与排队时间；保存排队、开始、结束时刻，队列超限显式记录未模拟，不能无界积压或静默丢弃。
-- [ ] 同一测试通过；候选被重组失效后，晚到模拟仍存档但不计入有效统计。
+- [x] 编写 `timeout_does_not_block_state`：模拟任务超时期间仍处理下一个完整块；状态不匹配结果不能成为原候选通过证据。
+- [x] 运行 `cargo test -p arb-app --test t24_simulation_queue` 确认失败。
+- [x] 限制并发与排队时间；保存排队、开始、结束时刻，队列超限显式记录未模拟，不能无界积压或静默丢弃。
+- [x] 同一测试通过；候选被重组失效后，晚到模拟仍存档但不计入有效统计。
 
 ```rust
 assert_eq!(last_processed_block, next_block);
