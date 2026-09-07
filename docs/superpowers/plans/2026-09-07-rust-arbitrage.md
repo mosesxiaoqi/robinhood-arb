@@ -148,12 +148,12 @@ assert_eq!(decoded, original);
 
 **文件：** 新建 `arb-core/src/route.rs`、`arb-core/tests/t04_route.rs`；修改 `lib.rs`。
 
-**接口：** 定义 `Leg`、`Route`；`Route::validate(&self) -> Result<(), RouteError>`。池标识包括网络和地址。
+**接口：** 定义 `Leg`、`Route`；`Route::validate(&self) -> Result<(), RouteError>`。池标识包括网络和独立池地址，或网络、PoolManager 地址与 PoolId（适配 V4 singleton）。
 
-- [ ] 编写 `validate_closed_route`：合法双腿和合法三腿通过；空路线、断裂资产、跨网络和不闭合路线失败。
-- [ ] 运行 `cargo test -p arb-core --test t04_route` 确认失败。
-- [ ] 使用 `Vec<Leg>`，逐腿验证相邻资产及首尾闭合，不在结构层硬编码两腿；两腿限制属于候选生成任务。
-- [ ] 同一测试通过，三腿结构可表达但不产生多腿搜索实现。
+- [x] 编写 `validate_closed_route`：合法双腿和合法三腿通过；空路线、断裂资产、跨网络和不闭合路线失败。
+- [x] 运行 `cargo test -p arb-core --test t04_route` 确认失败。
+- [x] 使用 `Vec<Leg>`，逐腿验证相邻资产及首尾闭合，不在结构层硬编码两腿；两腿限制属于候选生成任务。
+- [x] 同一测试通过，三腿结构可表达但不产生多腿搜索实现。
 
 ```rust
 assert!(closed_three_legs.validate().is_ok());
