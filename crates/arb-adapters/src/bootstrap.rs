@@ -40,7 +40,7 @@ impl RpcSource {
         evidence: &mut Vec<Vec<u8>>,
     ) -> Result<Vec<U256>, SourceError> {
         words(
-            self.bootstrap_request(
+            self.evidence_request(
                 "eth_call",
                 json!([{"to":address,"data":calldata(signature,args)},tag]),
                 evidence,
@@ -78,14 +78,14 @@ impl RpcSource {
         let _permit = self.gate.acquire().await.map_err(|_| invalid())?;
         let mut evidence = vec![];
         let chain = self
-            .bootstrap_request("eth_chainId", json!([]), &mut evidence)
+            .evidence_request("eth_chainId", json!([]), &mut evidence)
             .await?;
         if chain != json!("0x1237") {
             return Err(invalid());
         }
         let tag = format!("0x{:x}", at.block_number);
         let header = self
-            .bootstrap_request("eth_getBlockByNumber", json!([tag, false]), &mut evidence)
+            .evidence_request("eth_getBlockByNumber", json!([tag, false]), &mut evidence)
             .await?;
         if header["hash"] != json!(at.block_hash) || header["number"] != json!(tag) {
             return Err(invalid());
@@ -106,7 +106,7 @@ impl RpcSource {
             ),
         ] {
             let code: Bytes = serde_json::from_value(
-                self.bootstrap_request("eth_getCode", json!([address, tag]), &mut evidence)
+                self.evidence_request("eth_getCode", json!([address, tag]), &mut evidence)
                     .await?,
             )
             .map_err(|_| invalid())?;
@@ -258,7 +258,7 @@ impl RpcSource {
             });
         }
         let end = self
-            .bootstrap_request("eth_getBlockByNumber", json!([tag, false]), &mut evidence)
+            .evidence_request("eth_getBlockByNumber", json!([tag, false]), &mut evidence)
             .await?;
         if end["hash"] != header["hash"] || end["number"] != header["number"] {
             return Err(invalid());

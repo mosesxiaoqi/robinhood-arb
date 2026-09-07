@@ -7,3 +7,4 @@ pub mod discovery;
 pub mod assemble;
 pub mod bootstrap;
 pub mod decode;
+pub mod simulation;

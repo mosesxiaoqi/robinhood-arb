@@ -29,3 +29,9 @@
 余额覆盖为模拟调用者 `1 ETH`，封装运行时代码注入空地址；两个池、Hook、代币余额和授权均未覆盖。为验证本金回滚，Gas 价格和模拟区块基础费设为零；记录的 Gas 用量不能直接当作实际链上费用或发送条件验证。第二池报价暂未实现，当前候选管线不会把它标记为已支持；模拟证明只覆盖这里的真实路线及已披露条件。
 
 原始请求/响应及独立预期值位于 `tests/data/verified/atomic-simulation.json`、`atomic-expected.json`；能力与历史裁剪证据位于 `simulation-capabilities.json`、`simulation-local-fork.json`。运行 `python3 scripts/verify_simulation_samples.py` 离线核对双腿事件、资产流、基础状态和整体回滚。公共节点历史状态会裁剪，旧固定区块请求日后可能不可重跑；新验收应重新选固定区块，不能静默改为 latest 后沿用旧位置。
+
+## T23 Rust 后端复验
+
+Rust `RpcSource::simulate` 已在新固定区块 `56889840` / `0xb77a557007360d9a2f90bd317602f062391ea092859e64c6f22f6fa8143bff2f` 重复只读验收：成功用量 `187103` Gas，返回 `80068701` wei；第二腿失败用量 `117764` Gas，资产与池状态整体回滚。完整本机复验记录保存在忽略跟踪的 `data/t23-live-simulation.json`；可复用验收命令 `cargo test -p arb-adapters --test t23_simulation verified_live_atomic_route -- --ignored --nocapture`。
+
+默认离线测试消费 T22 实际响应，并拒绝不匹配的基础状态、资金条件、双腿事件或最终价格。超时/传输异常归为未知，缺历史状态或接口不可用归为不可用；仅内层调用的明确失败及回滚证据归为执行失败。错误保留请求与可取得的原始回复，不回退到最新状态。

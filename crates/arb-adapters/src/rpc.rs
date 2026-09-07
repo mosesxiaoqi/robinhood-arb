@@ -33,7 +33,7 @@ pub enum SourceError {
     #[error("RPC HTTP status {0}")]
     Http(u16),
     #[error("RPC error code {0}")]
-    Rpc(i64),
+    Rpc(i64, Vec<u8>),
     #[error("RPC response exceeds byte limit")]
     TooLarge,
     #[error("invalid RPC data: {0}")]
@@ -120,7 +120,7 @@ impl RpcSource {
                 &result,
                 Err(SourceError::Transport)
                     | Err(SourceError::Http(429 | 500 | 502 | 503 | 504))
-                    | Err(SourceError::Rpc(-32005 | 429))
+                    | Err(SourceError::Rpc(-32005 | 429, _))
             );
             if !retry || attempt == self.options.retry_limit {
                 return result;
@@ -178,7 +178,7 @@ impl RpcSource {
                     .try_into()
                     .map_err(|_| SourceError::Invalid("elapsed time overflow"))?,
             }),
-            ResponsePayload::Failure(error) => Err(SourceError::Rpc(error.code)),
+            ResponsePayload::Failure(error) => Err(SourceError::Rpc(error.code, bytes)),
         }
     }
 
@@ -261,13 +261,29 @@ impl RpcSource {
 }
 
 impl RpcSource {
-    pub(crate) async fn bootstrap_request(
+    pub(crate) async fn evidence_request(
         &self,
         method: &'static str,
         params: Value,
         evidence: &mut Vec<Vec<u8>>,
     ) -> Result<Value, SourceError> {
-        let reply = self.request(method, params.clone()).await?;
+        let reply = match self.request(method, params.clone()).await {
+            Ok(reply) => reply,
+            Err(error) => {
+                let entry = match &error {
+                    SourceError::Rpc(code, bytes) => {
+                        json!({"method":method,"params":params,"response_bytes":bytes,"rpc_error_code":code})
+                    }
+                    _ => json!({"method":method,"params":params,"error":error.to_string()}),
+                };
+                let bytes = serde_json::to_vec(&entry)
+                    .map_err(|_| SourceError::Invalid("error evidence"))?;
+                if evidence.iter().map(Vec::len).sum::<usize>() + bytes.len() <= 64 * 1024 * 1024 {
+                    evidence.push(bytes);
+                }
+                return Err(error);
+            }
+        };
         let entry = serde_json::to_vec(
             &json!({"method":method,"params":params,"response_bytes":reply.bytes}),
         )
@@ -370,4 +386,17 @@ fn normalize_log(value: &Value) -> Result<String, SourceError> {
         return Err(SourceError::Invalid("log topics"));
     }
     serde_json::to_string(&log).map_err(|_| SourceError::Invalid("log serialization"))
+}
+
+impl RpcSource {
+    pub async fn latest_position(&self) -> Result<ChainPosition, SourceError> {
+        let block = self
+            .request("eth_getBlockByNumber", json!(["latest", false]))
+            .await?;
+        Ok(ChainPosition {
+            block_number: quantity(&block.value["number"])?,
+            block_hash: hash(&block.value["hash"])?,
+            offset: Offset::BlockEnd,
+        })
+    }
 }

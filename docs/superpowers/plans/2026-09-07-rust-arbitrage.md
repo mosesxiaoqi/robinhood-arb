@@ -502,10 +502,10 @@ assert_eq!(balance_after_reverted_route, balance_before_route);
 
 **接口：** 定义 `SimulationRequest`、`SimulationResult`；`simulate(&self, request: &SimulationRequest) -> Result<SimulationResult, SimulationTransportError>`，异步；请求含路线、金额、账户条件和状态位置。
 
-- [ ] 编写 `simulate_atomic_route`：消费 T22 成功与第二腿失败样本，断言最终资产变化、Gas、回滚和实际状态位置；不使用自造“成功”布尔响应替代语义验证。
-- [ ] 运行 `cargo test -p arb-adapters --test t23_simulation` 确认失败。
-- [ ] 按 T22 唯一选定方法实现请求构造、结果解析和受限超时；明确成功、执行失败、不可用、未知与错误证据。
-- [ ] 同一测试通过；对实际后端重复只读验收。超时不计为执行失败，缺历史状态不自动使用最新块。
+- [x] 编写 `simulate_atomic_route`：消费 T22 成功与第二腿失败样本，断言最终资产变化、Gas、回滚和实际状态位置；不使用自造“成功”布尔响应替代语义验证。
+- [x] 运行 `cargo test -p arb-adapters --test t23_simulation` 确认失败。
+- [x] 按 T22 唯一选定方法实现请求构造、结果解析和受限超时；明确成功、执行失败、不可用、未知与错误证据。
+- [x] 同一测试通过；对实际后端重复只读验收。超时不计为执行失败，缺历史状态不自动使用最新块。
 
 ```rust
 assert_eq!(result.actual_position, request.position);
