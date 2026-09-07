@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "chain_id": 4663,
+  "checked_at": "2026-09-07T12:31:36.662109+00:00",
+  "files": {
+    "contracts.json": {
+      "sha256": "6e3280c98bd6bc101a428f7d9b95f021c958fca61a4a5071358f1e8c099ba371"
+    },
+    "pons-observations.json": {
+      "sha256": "0429d99a53d346a0f2f2d98dae03026ea41144901213b751863543d5c2044a60"
+    },
+    "quote-expected.json": {
+      "sha256": "4c32ba593a5d89b4e3d48ba8fe67be3af7b02d7adc08d93b4b43c25227ac185a"
+    },
+    "reverted-receipt.json": {
+      "sha256": "1925ed74b102025c3c5944bb124d1b24f0c800145bef70ff61aa70796491e5bc"
+    }
+  },
+  "source_rules": "All observations are actual public RPC responses. Expected values checked against receipt events. No fabricated pool or successful transaction."
+}
