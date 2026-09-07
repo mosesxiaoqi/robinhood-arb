@@ -6,3 +6,11 @@ rust-version.workspace = true
 
 [dependencies]
 arb-core = { path = "../arb-core" }
+rusqlite = { version = "0.40", features = ["bundled"] }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+alloy-primitives.workspace = true
+tempfile = "3"

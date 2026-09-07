@@ -67,3 +67,11 @@ impl RawRecord {
         Ok(())
     }
 }
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SourceCursor {
+    pub chain_id: u64,
+    pub source: String,
+    pub next_block: u64,
+    pub last_block_hash: Option<B256>,
+}

@@ -168,10 +168,10 @@ assert!(broken_assets.validate().is_err());
 
 **接口：** `Store::open(path: &Path) -> Result<Store, StoreError>`；`append_raw(&mut self, records: &[RawRecord], cursor: &SourceCursor) -> Result<(), StoreError>`；`SourceCursor` 在 `types.rs` 定义为网络、来源、可恢复位置。
 
-- [ ] 编写 `rollback_record_and_cursor`：用 SQLite 约束失败中断批写，验证该批记录及游标都未提交；重复批次不重复产生领域输入。
-- [ ] 运行 `cargo test -p arb-adapters --test t05_atomic_store` 确认失败。
-- [ ] 创建迁移版本、原始记录、观察时间和来源游标表，开启 WAL，事务内完成批写；分别保留同一链事实的多来源观测，不能去重掉接收时间证据。
-- [ ] 同一测试通过；重开数据库后游标与记录仍一致，未知迁移版本拒绝打开写入。
+- [x] 编写 `rollback_record_and_cursor`：用 SQLite 约束失败中断批写，验证该批记录及游标都未提交；重复批次不重复产生领域输入。
+- [x] 运行 `cargo test -p arb-adapters --test t05_atomic_store` 确认失败。
+- [x] 创建迁移版本、原始记录、观察时间和来源游标表，开启 WAL，事务内完成批写；分别保留同一链事实的多来源观测，不能去重掉接收时间证据。
+- [x] 同一测试通过；重开数据库后游标与记录仍一致，未知迁移版本拒绝打开写入。
 
 ```rust
 assert!(write_result.is_err());
