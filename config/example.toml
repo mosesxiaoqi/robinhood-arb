@@ -16,3 +16,8 @@ database = "data/research.db"
 window_seconds = 60
 disk_budget_bytes = 1073741824
 disk_reserve_bytes = 10485760
+
+# Optional runtime controls. Omit start_block to begin at the confirmed head on a new database.
+# start_block = 56830269
+# run_id = "research-window-1" # reuse to resume; use a new id for a fresh pool universe
+# additional_cost = "1000000000000" # total extra cost estimate in quote-asset units; absent = unknown

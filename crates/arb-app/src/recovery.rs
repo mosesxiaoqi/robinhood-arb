@@ -175,7 +175,34 @@ impl RecoveryPlan {
                 .map_err(|_| PipelineError::Invalid("recovery time overflow"))?;
             pipeline.process_timed(batch.clone(), time, vec![])?;
         }
-        pipeline.store.finish_recovery(self.id)?;
+        if pipeline
+            .store
+            .runtime_checkpoint(&pipeline.run.run_id)?
+            .is_some()
+        {
+            let checkpoint = arb_core::checkpoint::Checkpoint {
+                version: 1,
+                research_run_id: Some(pipeline.run.run_id.clone()),
+                state: pipeline.state.clone(),
+                registry_version: pipeline.run.registry_version,
+                config_hash: pipeline.run.config_hash,
+                algorithm_version: pipeline.run.algorithm_version.clone(),
+                processing_cursor: arb_core::checkpoint::ProcessingCursor {
+                    last_raw_id: pipeline.store.last_raw_id()?,
+                    next_block: pipeline
+                        .view()
+                        .position
+                        .block_number
+                        .checked_add(1)
+                        .ok_or(PipelineError::Invalid("recovery overflow"))?,
+                },
+            };
+            pipeline
+                .store
+                .finish_runtime_recovery(&checkpoint, self.id)?;
+        } else {
+            pipeline.store.finish_recovery(self.id)?;
+        }
         pipeline.paused = false;
         Ok(pipeline.view())
     }

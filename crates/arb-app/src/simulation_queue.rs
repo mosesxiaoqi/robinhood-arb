@@ -17,6 +17,7 @@ pub struct QueueOptions {
     pub concurrency: usize,
     pub queue_timeout_ms: u64,
     pub call_timeout_ms: u64,
+    pub disk_budget: Option<crate::runtime::DiskBudget>,
 }
 #[derive(Debug, thiserror::Error)]
 #[error("simulation queue: {0}")]
@@ -41,6 +42,7 @@ pub struct SimulationQueue {
     worker: Option<JoinHandle<Result<(), QueueError>>>,
     path: PathBuf,
     queue_id: String,
+    budget: Option<crate::runtime::DiskBudget>,
 }
 impl Drop for SimulationQueue {
     fn drop(&mut self) {
@@ -49,17 +51,71 @@ impl Drop for SimulationQueue {
         }
     }
 }
-async fn insert(path: PathBuf, record: SimulationRecord) -> Result<bool, QueueError> {
-    tokio::task::spawn_blocking(move || Store::open(&path)?.insert_simulation(&record))
-        .await
-        .map_err(error)?
-        .map_err(error)
+async fn insert(
+    path: PathBuf,
+    record: SimulationRecord,
+    budget: Option<crate::runtime::DiskBudget>,
+) -> Result<bool, QueueError> {
+    tokio::task::spawn_blocking(move || {
+        let gate = budget.as_ref().map(|b| b.write_gate.clone());
+        let _guard = gate
+            .as_ref()
+            .map(|g| {
+                g.lock()
+                    .map_err(|_| QueueError("budget lock poisoned".into()))
+            })
+            .transpose()?;
+        if let Some(budget) = budget
+            && !budget
+                .allows(serde_json::to_vec(&record).map_err(error)?.len() as u64)
+                .map_err(error)?
+        {
+            return Err(QueueError(
+                "disk budget prevents simulation admission".into(),
+            ));
+        }
+        Store::open(&path)
+            .map_err(error)?
+            .insert_simulation(&record)
+            .map_err(error)
+    })
+    .await
+    .map_err(error)?
 }
-async fn save(path: PathBuf, mut record: SimulationRecord) -> Result<(), QueueError> {
-    tokio::task::spawn_blocking(move || Store::open(&path)?.save_simulation(&mut record))
-        .await
-        .map_err(error)?
-        .map_err(error)
+async fn save(
+    path: PathBuf,
+    mut record: SimulationRecord,
+    budget: Option<crate::runtime::DiskBudget>,
+) -> Result<(), QueueError> {
+    tokio::task::spawn_blocking(move || {
+        let gate = budget.as_ref().map(|b| b.write_gate.clone());
+        let _guard = gate
+            .as_ref()
+            .map(|g| {
+                g.lock()
+                    .map_err(|_| QueueError("budget lock poisoned".into()))
+            })
+            .transpose()?;
+        if let Some(budget) = budget
+            && !budget
+                .allows(serde_json::to_vec(&record).map_err(error)?.len() as u64)
+                .map_err(error)?
+        {
+            record.result = None;
+            record.error_evidence.clear();
+            record.outcome = SimulationOutcome::Unknown;
+            record.phase = SimulationPhase::Interrupted;
+            record.error = Some("disk budget: simulation result not persisted".into());
+            record.ended_at_ms = Some(now()?);
+        }
+        Store::open(&path)
+            .map_err(error)?
+            .save_simulation(&mut record)
+            .map_err(error)
+    })
+    .await
+    .map_err(error)?
+    .map_err(error)
 }
 impl SimulationQueue {
     pub fn new(
@@ -84,7 +140,13 @@ impl SimulationQueue {
             worker: Some(worker),
             path,
             queue_id: options.queue_id,
+            budget: options.disk_budget,
         })
+    }
+    pub fn queued_len(&self) -> usize {
+        self.sender
+            .as_ref()
+            .map_or(0, |s| s.max_capacity() - s.capacity())
     }
     pub async fn submit(
         &self,
@@ -142,7 +204,7 @@ impl SimulationQueue {
             canonical: false,
             validates_original_candidate: false,
         };
-        if insert(self.path.clone(), record.clone()).await?
+        if insert(self.path.clone(), record.clone(), self.budget.clone()).await?
             && let Some(permit) = permit
         {
             permit.send(Pending { record, queued });
@@ -225,11 +287,16 @@ async fn run_job(
         pending.record.outcome = SimulationOutcome::Unavailable;
         pending.record.error = Some("simulation queue deadline exceeded".into());
         pending.record.ended_at_ms = Some(now()?);
-        return save(path, pending.record).await;
+        return save(path, pending.record, options.disk_budget.clone()).await;
     }
     pending.record.phase = SimulationPhase::Running;
     pending.record.started_at_ms = Some(now()?);
-    save(path.clone(), pending.record.clone()).await?;
+    save(
+        path.clone(),
+        pending.record.clone(),
+        options.disk_budget.clone(),
+    )
+    .await?;
     let started = Instant::now();
     match tokio::time::timeout(
         Duration::from_millis(options.call_timeout_ms),
@@ -255,5 +322,5 @@ async fn run_job(
     pending.record.elapsed_ns = Some(started.elapsed().as_nanos().try_into().map_err(error)?);
     pending.record.ended_at_ms = Some(now()?);
     pending.record.phase = SimulationPhase::Finished;
-    save(path, pending.record).await
+    save(path, pending.record, options.disk_budget.clone()).await
 }

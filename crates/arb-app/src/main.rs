@@ -15,6 +15,24 @@ async fn run(args: &[String]) -> Result<(), String> {
         [command,flag,path] if command=="check-config" && flag=="--config" => {
             load(path)?;println!("configuration valid (offline validation; network not contacted)");Ok(())
         }
+        [command,flag,path] if command=="run" && flag=="--config" => {
+            let config=load(path)?;
+            let (sender,receiver)=tokio::sync::watch::channel(false);
+            let signals=tokio::spawn(async move {
+                #[cfg(unix)] {
+                    if let Ok(mut terminate)=tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+                        tokio::select! {_=tokio::signal::ctrl_c()=>{},_=terminate.recv()=>{}}
+                    } else {let _=tokio::signal::ctrl_c().await;}
+                }
+                #[cfg(not(unix))] {let _=tokio::signal::ctrl_c().await;}
+                let _=sender.send(true);
+            });
+            let result=arb_app::runtime::run(config,receiver).await;
+            signals.abort();
+            let summary=result?;
+            println!("{}",serde_json::to_string_pretty(&summary).map_err(|_|"summary serialization")?);
+            if matches!(summary.status,arb_app::runtime::RunStatus::Failed|arb_app::runtime::RunStatus::DataGapPaused|arb_app::runtime::RunStatus::DiskPaused) {return Err("runtime paused/failed; inspect stored run status".into());}Ok(())
+        }
         [command,flag,path,from_flag,from,to_flag,to] if command=="collect" && flag=="--config" && from_flag=="--from" && to_flag=="--to" => {
             let config=load(path)?;
             let from=from.parse().map_err(|_|"invalid --from block")?;let to=to.parse().map_err(|_|"invalid --to block")?;
@@ -46,7 +64,7 @@ async fn run(args: &[String]) -> Result<(), String> {
             let count=tokio::task::spawn_blocking(move || arb_app::replay::replay_checkpoint_mode(config,id,to,observed)).await.map_err(|_|"replay worker failed")?.map_err(|e|e.to_string())?;
             println!("replayed {count} candidates (stored historical input only)");Ok(())
         }
-        _=>Err("usage: arb-app check-config --config <path> | collect --config <path> --from <block> --to <block> | report --config <path> --run <id> --out <new-directory> [--from <block> --to <block>] | collect-feed --config <path> --frames <1..10000> | replay --mode <chain|observed> --config <path> --checkpoint <id> --to <block>".into()),
+        _=>Err("usage: arb-app run --config <path> | check-config --config <path> | collect --config <path> --from <block> --to <block> | report --config <path> --run <id> --out <new-directory> [--from <block> --to <block>] | collect-feed --config <path> --frames <1..10000> | replay --mode <chain|observed> --config <path> --checkpoint <id> --to <block>".into()),
     }
 }
 #[tokio::main]

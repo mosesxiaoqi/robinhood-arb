@@ -23,8 +23,16 @@ pub fn export_report(
         return Err("run recovery pending; report paused".into());
     }
     let run = store.load_run(run_id).map_err(error)?;
+    let runtime = store.runtime_status(run_id).map_err(error)?;
+    let observed_range = runtime.as_ref().and_then(|s| {
+        Some((
+            s["first_collected"].as_u64()?,
+            s["last_collected"].as_u64()?,
+        ))
+    });
     let (from, to) = range
         .or(store.report_bounds(run_id).map_err(error)?)
+        .or(observed_range)
         .unwrap_or((0, 0));
     if from > to || to - from >= 10000 {
         return Err("report window exceeds 10000 blocks; supply --from and --to".into());
@@ -134,6 +142,9 @@ pub fn export_report(
             gaps,
         )
         .map_err(error)?;
+        if let Some(runtime) = &runtime {
+            writeln!(markdown,"\n## 最近运行窗口\n\n原始采集覆盖与完成状态分析分开计数；无池时仅采集原始记录，未建立分析视图。\n\n```json\n{}\n```",serde_json::to_string_pretty(runtime).map_err(error)?).map_err(error)?;
+        }
         markdown.flush().map_err(error)?;
         csv.flush().map_err(error)?;
         markdown.get_ref().sync_all().map_err(error)?;

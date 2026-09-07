@@ -35,6 +35,7 @@ impl Store {
             include_str!("migrations/009.sql"),
             include_str!("migrations/010.sql"),
             include_str!("migrations/011.sql"),
+            include_str!("migrations/012.sql"),
         ];
         if version as usize > migrations.len() {
             return Err(StoreError::Invalid("unsupported database version"));
@@ -85,6 +86,14 @@ impl Store {
         records: &[RawRecord],
         cursor: &SourceCursor,
     ) -> Result<(), StoreError> {
+        self.append_raw_with_pools(records, cursor, &[])
+    }
+    pub fn append_raw_with_pools(
+        &mut self,
+        records: &[RawRecord],
+        cursor: &SourceCursor,
+        pools: &[arb_core::types::PoolDescriptor],
+    ) -> Result<(), StoreError> {
         if records.is_empty() || cursor.chain_id == 0 || cursor.source.is_empty() {
             return Err(StoreError::Invalid("empty batch or invalid cursor"));
         }
@@ -118,6 +127,15 @@ impl Store {
                 continue;
             }
             tx.execute("INSERT INTO raw_records(chain_id,source,run_id,sequence,data,block_number) VALUES(?1,?2,?3,?4,?5,?6)",params![raw.chain_id.to_string(),raw.source,raw.run_id,raw.sequence.to_string(),data,raw.position.as_ref().map(|p|p.block_number.to_string())])?;
+        }
+        for pool in pools {
+            if pool.id.chain_id != cursor.chain_id {
+                return Err(StoreError::Invalid("pool registry network"));
+            }
+            tx.execute(
+                "INSERT INTO pool_registry(key,data) VALUES(?1,?2) ON CONFLICT(key) DO NOTHING",
+                params![serde_json::to_string(&pool.id)?, serde_json::to_vec(pool)?],
+            )?;
         }
         tx.execute("INSERT INTO source_cursors(chain_id,source,data) VALUES(?1,?2,?3) ON CONFLICT(chain_id,source) DO UPDATE SET data=excluded.data",params![cursor.chain_id.to_string(),cursor.source,serde_json::to_vec(cursor)?])?;
         if let Some(block) = cursor.next_block.checked_sub(1) {
@@ -774,7 +792,7 @@ impl Store {
         connection.busy_timeout(Duration::from_secs(5))?;
         connection.execute_batch("BEGIN DEFERRED")?;
         let version: u32 = connection.pragma_query_value(None, "user_version", |r| r.get(0))?;
-        if version != 11 {
+        if version != 12 {
             return Err(StoreError::Invalid("report requires current schema"));
         }
         Ok(Self { connection })
@@ -865,5 +883,120 @@ impl Store {
             |r| r.get(0),
         )?;
         Ok((rpc as u64, feed as u64))
+    }
+}
+
+impl Store {
+    pub fn runtime_checkpoint(
+        &self,
+        run: &str,
+    ) -> Result<Option<arb_core::checkpoint::Checkpoint>, StoreError> {
+        let id: Option<i64> = self
+            .connection
+            .query_row(
+                "SELECT checkpoint_id FROM runtime_checkpoints WHERE run_id=?1",
+                [run],
+                |r| r.get(0),
+            )
+            .optional()?;
+        id.map(|id| self.load_checkpoint(id as u64)).transpose()
+    }
+    pub fn save_runtime_checkpoint(
+        &mut self,
+        checkpoint: &arb_core::checkpoint::Checkpoint,
+    ) -> Result<(), StoreError> {
+        self.write_runtime_checkpoint(checkpoint, None)
+    }
+    pub fn finish_runtime_recovery(
+        &mut self,
+        checkpoint: &arb_core::checkpoint::Checkpoint,
+        id: alloy_primitives::B256,
+    ) -> Result<(), StoreError> {
+        self.write_runtime_checkpoint(checkpoint, Some(id))
+    }
+    fn write_runtime_checkpoint(
+        &mut self,
+        checkpoint: &arb_core::checkpoint::Checkpoint,
+        recovery: Option<alloy_primitives::B256>,
+    ) -> Result<(), StoreError> {
+        checkpoint.validate()?;
+        let run = checkpoint
+            .research_run_id
+            .as_ref()
+            .ok_or(StoreError::Invalid("runtime run identity"))?;
+        let bytes = serde_json::to_vec(checkpoint)?;
+        if bytes.len() > 67108864 {
+            return Err(StoreError::Invalid("checkpoint budget"));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        tx.execute("INSERT INTO checkpoints(data) VALUES(?1)", [bytes])?;
+        let id = tx.last_insert_rowid();
+        tx.execute("INSERT INTO runtime_checkpoints(run_id,checkpoint_id) VALUES(?1,?2) ON CONFLICT(run_id) DO UPDATE SET checkpoint_id=excluded.checkpoint_id",params![run,id])?;
+        if let Some(recovery) = recovery {
+            let view = checkpoint.state.view();
+            let cursor = SourceCursor {
+                chain_id: view.pools[0].descriptor.id.chain_id,
+                source: "rpc".into(),
+                next_block: checkpoint.processing_cursor.next_block,
+                last_block_hash: Some(view.position.block_hash),
+            };
+            tx.execute("INSERT INTO source_cursors(chain_id,source,data) VALUES(?1,'rpc',?2) ON CONFLICT(chain_id,source) DO UPDATE SET data=excluded.data",params![cursor.chain_id.to_string(),serde_json::to_vec(&cursor)?])?;
+            tx.execute("UPDATE ingest_gaps SET resolved=1 WHERE chain_id=?1 AND source='rpc' AND block_number=?2",params![cursor.chain_id.to_string(),view.position.block_number.to_string()])?;
+            tx.execute(
+                "UPDATE recovery_jobs SET status='complete' WHERE id=?1",
+                [recovery.to_string()],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+    pub fn pending_recovery(
+        &self,
+        run: &str,
+    ) -> Result<Option<alloy_primitives::B256>, StoreError> {
+        let id: Option<String> = self
+            .connection
+            .query_row(
+                "SELECT id FROM recovery_jobs WHERE run_id=?1 AND status='pending'",
+                [run],
+                |r| r.get(0),
+            )
+            .optional()?;
+        id.map(|v| v.parse().map_err(|_| StoreError::Invalid("recovery id")))
+            .transpose()
+    }
+    pub fn save_runtime_status(
+        &mut self,
+        run: &str,
+        value: &serde_json::Value,
+    ) -> Result<(), StoreError> {
+        let bytes = serde_json::to_vec(value)?;
+        if bytes.len() > 65536 {
+            return Err(StoreError::Invalid("runtime status budget"));
+        }
+        self.connection.execute("INSERT INTO runtime_status(run_id,data) VALUES(?1,?2) ON CONFLICT(run_id) DO UPDATE SET data=excluded.data",params![run,bytes])?;
+        Ok(())
+    }
+    pub fn runtime_status(&self, run: &str) -> Result<Option<serde_json::Value>, StoreError> {
+        let bytes: Option<Vec<u8>> = self
+            .connection
+            .query_row(
+                "SELECT data FROM runtime_status WHERE run_id=?1",
+                [run],
+                |r| r.get(0),
+            )
+            .optional()?;
+        bytes
+            .map(|b| serde_json::from_slice(&b).map_err(StoreError::from))
+            .transpose()
+    }
+    pub fn last_raw_id(&self) -> Result<u64, StoreError> {
+        Ok(self
+            .connection
+            .query_row("SELECT COALESCE(max(id),0) FROM raw_records", [], |r| {
+                r.get::<_, i64>(0)
+            })? as u64)
     }
 }

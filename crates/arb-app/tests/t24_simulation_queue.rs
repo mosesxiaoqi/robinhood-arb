@@ -116,6 +116,7 @@ async fn timeout_does_not_block_state() {
             concurrency: 1,
             queue_timeout_ms: 200,
             call_timeout_ms: 1000,
+            disk_budget: None,
         },
     )
     .unwrap();
@@ -239,4 +240,51 @@ fn mismatched_state_does_not_validate_candidate() {
     c = candidate(1);
     c.canonical = false;
     assert!(!validates_candidate(&c, &result));
+}
+
+#[tokio::test]
+async fn bounded_shutdown_interrupts_slow_simulation() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("stop.db");
+    drop(Store::open(&path).unwrap());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let source = Arc::new(
+        RpcSource::new(
+            &format!("http://{}", listener.local_addr().unwrap()),
+            RpcOptions {
+                chain_id: 4663,
+                source: "slow".into(),
+                run_id: "test".into(),
+                requests_per_second: 1000,
+                max_concurrency: 1,
+                retry_limit: 0,
+                timeout_ms: 5000,
+                max_response_bytes: 1024 * 1024,
+            },
+        )
+        .unwrap(),
+    );
+    let queue = SimulationQueue::new(
+        source,
+        path.clone(),
+        QueueOptions {
+            queue_id: "stop".into(),
+            capacity: 1,
+            concurrency: 1,
+            queue_timeout_ms: 5000,
+            call_timeout_ms: 5000,
+            disk_budget: None,
+        },
+    )
+    .unwrap();
+    let id = queue
+        .submit(candidate(9), fixture::request())
+        .await
+        .unwrap();
+    let started = std::time::Instant::now();
+    queue.shutdown(10).await.unwrap();
+    assert!(started.elapsed() < std::time::Duration::from_millis(500));
+    let record = Store::open(&path).unwrap().load_simulation(id).unwrap();
+    assert_eq!(record.phase, SimulationPhase::Interrupted);
+    assert_eq!(record.outcome, SimulationOutcome::Unknown);
 }

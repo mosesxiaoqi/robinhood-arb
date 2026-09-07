@@ -8,6 +8,12 @@ use url::Url;
 #[serde(deny_unknown_fields)]
 pub struct Config {
     pub rpc_url: String,
+    #[serde(default)]
+    pub start_block: Option<u64>,
+    #[serde(default)]
+    pub run_id: Option<String>,
+    #[serde(default)]
+    pub additional_cost: Option<String>,
     pub chain_id: u64,
     pub quote_asset: Address,
     pub amounts: Vec<String>,
@@ -48,6 +54,19 @@ impl Config {
             return Err(ConfigError(
                 "rpc_url must be HTTP(S), with a host and no fragment",
             ));
+        }
+        if self.run_id.as_ref().is_some_and(|id| {
+            id.is_empty()
+                || id.len() > 128
+                || !id
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b"-_.".contains(&b))
+        }) || self.start_block == Some(u64::MAX)
+        {
+            return Err(ConfigError("runtime identity/start"));
+        }
+        if let Some(cost) = &self.additional_cost {
+            parse_amount(cost)?;
         }
         if self.chain_id == 0 {
             return Err(ConfigError("chain_id must be positive"));
@@ -106,17 +125,24 @@ pub fn parse_amount(value: &str) -> Result<U256, ConfigError> {
 }
 impl Config {
     pub fn research_hash(&self) -> alloy_primitives::B256 {
+        let mut value = serde_json::to_value((
+            self.chain_id,
+            self.quote_asset,
+            &self.amounts,
+            &self.min_depth,
+            &self.min_profit,
+            self.confirmations,
+            self.window_seconds,
+        ))
+        .expect("fixed research parameters");
+        if let Some(cost) = &self.additional_cost {
+            value
+                .as_array_mut()
+                .expect("tuple is array")
+                .push(serde_json::json!({"additional_cost":cost}));
+        }
         alloy_primitives::keccak256(
-            serde_json::to_vec(&(
-                self.chain_id,
-                self.quote_asset,
-                &self.amounts,
-                &self.min_depth,
-                &self.min_profit,
-                self.confirmations,
-                self.window_seconds,
-            ))
-            .expect("fixed primitive research configuration is serializable"),
+            serde_json::to_vec(&value).expect("research parameters serialize"),
         )
     }
 }

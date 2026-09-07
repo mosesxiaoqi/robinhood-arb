@@ -3,6 +3,7 @@ use alloy_primitives::B256;
 use arb_core::types::{ChainPosition, Confirmation, ExecutionStatus, Offset, RawRecord};
 use reqwest::Client;
 use serde_json::{Value, json};
+use std::sync::Arc;
 use std::{
     collections::BTreeSet,
     str::FromStr,
@@ -50,7 +51,7 @@ pub struct RpcSource {
     client: Client,
     endpoint: reqwest::Url,
     options: RpcOptions,
-    next_request: Mutex<Instant>,
+    next_request: Arc<Mutex<Instant>>,
     pub(crate) gate: Semaphore,
     sequence: AtomicU64,
 }
@@ -100,7 +101,7 @@ impl RpcSource {
             endpoint,
             gate: Semaphore::new(options.max_concurrency),
             options,
-            next_request: Mutex::new(Instant::now()),
+            next_request: Arc::new(Mutex::new(Instant::now())),
             sequence: AtomicU64::new(1),
         })
     }
@@ -389,6 +390,19 @@ fn normalize_log(value: &Value) -> Result<String, SourceError> {
 }
 
 impl RpcSource {
+    /// Independent in-flight gate, shared global request-rate budget.
+    pub fn simulation_lane(&self) -> Self {
+        let mut options = self.options.clone();
+        options.source = "simulation".into();
+        Self {
+            client: self.client.clone(),
+            endpoint: self.endpoint.clone(),
+            gate: Semaphore::new(options.max_concurrency.min(64)),
+            options,
+            next_request: self.next_request.clone(),
+            sequence: AtomicU64::new(1),
+        }
+    }
     pub async fn latest_position(&self) -> Result<ChainPosition, SourceError> {
         let block = self
             .request("eth_getBlockByNumber", json!(["latest", false]))
