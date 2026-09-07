@@ -35,9 +35,15 @@ impl Store {
                 }
                 let tx = connection.transaction()?;
                 tx.execute_batch(include_str!("migrations/001.sql"))?;
+                tx.execute_batch(include_str!("migrations/002.sql"))?;
                 tx.commit()?;
             }
-            1 => {}
+            1 => {
+                let tx = connection.transaction()?;
+                tx.execute_batch(include_str!("migrations/002.sql"))?;
+                tx.commit()?;
+            }
+            2 => {}
             _ => return Err(StoreError::Invalid("unsupported database version")),
         }
         let mode: String = connection.query_row("PRAGMA journal_mode=WAL", [], |r| r.get(0))?;
@@ -86,6 +92,9 @@ impl Store {
             tx.execute("INSERT INTO raw_records(chain_id,source,run_id,sequence,data) VALUES(?1,?2,?3,?4,?5)",params![raw.chain_id.to_string(),raw.source,raw.run_id,raw.sequence.to_string(),data])?;
         }
         tx.execute("INSERT INTO source_cursors(chain_id,source,data) VALUES(?1,?2,?3) ON CONFLICT(chain_id,source) DO UPDATE SET data=excluded.data",params![cursor.chain_id.to_string(),cursor.source,serde_json::to_vec(cursor)?])?;
+        if let Some(block) = cursor.next_block.checked_sub(1) {
+            tx.execute("UPDATE ingest_gaps SET resolved=1 WHERE chain_id=?1 AND source=?2 AND block_number=?3",params![cursor.chain_id.to_string(),cursor.source,block.to_string()])?;
+        }
         tx.commit()?;
         Ok(())
     }
@@ -158,5 +167,18 @@ impl Store {
             bytes += size;
         }
         Ok(result)
+    }
+}
+
+impl Store {
+    pub fn record_gap(
+        &mut self,
+        chain: u64,
+        source: &str,
+        block: u64,
+        reason: &str,
+    ) -> Result<(), StoreError> {
+        self.connection.execute("INSERT INTO ingest_gaps(chain_id,source,block_number,reason) VALUES(?1,?2,?3,?4) ON CONFLICT(chain_id,source,block_number) DO UPDATE SET reason=excluded.reason,resolved=0",params![chain.to_string(),source,block.to_string(),reason])?;
+        Ok(())
     }
 }

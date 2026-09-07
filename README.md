@@ -1,10 +1,10 @@
 # Robinhood 链上套利研究
 
-当前阶段：程序功能讨论，尚未进入实现。用户确认范围后再编写程序。
+当前阶段：按任务实现中。T01–T08 已完成：配置校验、原始记录、路线结构、SQLite 存储及有限区块采集；套利计算和完整模拟尚未实现。
 
 技术方向：Rust 模块化单体。模块边界、数据契约和运行流程见 [架构设计](docs/architecture.md)。
 
-实现顺序、最小任务、依赖和验收标准见 [实现计划](docs/superpowers/plans/2026-09-07-rust-arbitrage.md)。当前仅生成计划，尚未执行。
+实现顺序、最小任务、依赖和验收标准见 [实现计划](docs/superpowers/plans/2026-09-07-rust-arbitrage.md)。任务勾选记录实际进度。
 
 已确认套利范围：同一代币、两个不同池、同一报价资产的双腿闭环；路线数据结构可表达多腿，暂不实现通用多跳搜索。
 
@@ -32,3 +32,14 @@
 - 以包含失败币和真实延迟的结果决定是否进入执行开发，不根据屏幕价差或源钱包收益作结论。
 
 此目录是本地项目目录；加入 Codex 侧栏项目需要在应用中选择此文件夹。
+
+## 已实现命令
+
+```sh
+cargo run -p arb-app -- check-config --config config/example.toml
+cargo run -p arb-app -- collect --config /path/to/config.toml --from 56819909 --to 56819909
+```
+
+示例配置使用无效域名供离线校验；采集前使用已核验 RPC。运行数据写入配置指定的本机 SQLite 文件，数据库无需单独安装。范围起点不得跳过已有采集游标；相同范围重跑只补采未提交区块。当前仅接受批量回执接口可用的 RPC。
+
+验证：`cargo test --workspace` 和 `cargo clippy --workspace --all-targets -- -D warnings`。默认测试不访问公网，但 RPC 测试需要绑定本机回环端口。

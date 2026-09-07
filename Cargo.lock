@@ -148,8 +148,12 @@ dependencies = [
  "arb-adapters",
  "arb-core",
  "arb-research",
+ "rusqlite",
  "serde",
+ "serde_json",
+ "tempfile",
  "thiserror",
+ "tokio",
  "toml",
  "url",
 ]

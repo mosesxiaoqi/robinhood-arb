@@ -222,10 +222,10 @@ assert!(request_count <= retry_limit + 1);
 
 **接口：** CLI `collect --config <path> --from <block> --to <block>`；编排 `RpcSource` 和专用线程上的 `Store`。
 
-- [ ] 编写 `resume_after_write_failure`：采集两块，第二块落盘失败，重启后从未提交位置补采；不跳过第二块。
-- [ ] 运行 `cargo test -p arb-app --test t08_ingest` 确认失败。
-- [ ] 用有界队列把采集结果交给单写线程，收到提交确认后才推进采集进度；记录断线缺口，补采成功再清除。
-- [ ] 同一测试通过；运行有限区块范围得到可重开的数据库，写入失败明确退出或暂停，不继续推进游标。
+- [x] 编写 `resume_after_write_failure`：采集两块，第二块落盘失败，重启后从未提交位置补采；不跳过第二块。
+- [x] 运行 `cargo test -p arb-app --test t08_ingest` 确认失败。
+- [x] 用有界队列把采集结果交给单写线程，收到提交确认后才推进采集进度；记录断线缺口，补采成功再清除。
+- [x] 同一测试通过；运行有限区块范围得到可重开的数据库，写入失败明确退出或暂停，不继续推进游标。
 
 ```rust
 assert_eq!(resumed_start, failed_block);

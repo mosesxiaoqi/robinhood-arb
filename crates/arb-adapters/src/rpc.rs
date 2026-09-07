@@ -311,3 +311,12 @@ fn hash(value: &Value) -> Result<B256, SourceError> {
     B256::from_str(value.as_str().ok_or(SourceError::Invalid("hash"))?)
         .map_err(|_| SourceError::Invalid("hash"))
 }
+
+impl RpcSource {
+    pub fn chain_id(&self) -> u64 {
+        self.options.chain_id
+    }
+    pub fn source_label(&self) -> &str {
+        &self.options.source
+    }
+}
