@@ -403,10 +403,10 @@ assert_eq!(unknown_cost_net_profit, None);
 
 **接口：** `Pipeline::process(&mut self, batch: BlockBatch, observed_at: u64) -> Result<Vec<Opportunity>, PipelineError>`；逻辑时间由参数提供。
 
-- [ ] 编写 `persist_candidate_provenance`：处理一个完整区块，候选能追溯到原始记录、视图、配置/算法版本和检测时间；坏区块不能产出候选。
-- [ ] 运行 `cargo test -p arb-app --test t18_pipeline` 确认失败。
-- [ ] 组合状态转换、路线和金额扫描；SQLite 增加派生记录与运行版本，幂等键包含运行语义，重放新参数不会覆盖旧研究结果。
-- [ ] 同一测试通过；保存候选不以模拟成功为前提，模拟状态初始明确为未运行。
+- [x] 编写 `persist_candidate_provenance`：处理一个完整区块，候选能追溯到原始记录、视图、配置/算法版本和检测时间；坏区块不能产出候选。
+- [x] 运行 `cargo test -p arb-app --test t18_pipeline` 确认失败。
+- [x] 组合状态转换、路线和金额扫描；SQLite 增加派生记录与运行版本，幂等键包含运行语义，重放新参数不会覆盖旧研究结果。
+- [x] 同一测试通过；保存候选不以模拟成功为前提，模拟状态初始明确为未运行。
 
 ```rust
 assert_eq!(loaded_opportunity.view_id, computed_opportunity.view_id);

@@ -29,6 +29,7 @@ impl Store {
             include_str!("migrations/003.sql"),
             include_str!("migrations/004.sql"),
             include_str!("migrations/005.sql"),
+            include_str!("migrations/006.sql"),
         ];
         if version as usize > migrations.len() {
             return Err(StoreError::Invalid("unsupported database version"));
@@ -274,5 +275,89 @@ impl Store {
         let checkpoint: arb_core::checkpoint::Checkpoint = serde_json::from_slice(&bytes)?;
         checkpoint.validate()?;
         Ok(checkpoint)
+    }
+}
+
+impl Store {
+    pub fn register_run(&mut self, run: &arb_core::research::RunSpec) -> Result<(), StoreError> {
+        run.validate()?;
+        let bytes = serde_json::to_vec(run)?;
+        let tx = self.connection.transaction()?;
+        let existing: Option<Vec<u8>> = tx
+            .query_row(
+                "SELECT data FROM research_runs WHERE run_id=?1",
+                [&run.run_id],
+                |r| r.get(0),
+            )
+            .optional()?;
+        if let Some(existing) = existing {
+            if existing != bytes {
+                return Err(StoreError::Invalid(
+                    "run id reused with different parameters",
+                ));
+            }
+        } else {
+            tx.execute(
+                "INSERT INTO research_runs(run_id,data) VALUES(?1,?2)",
+                params![run.run_id, bytes],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+    pub fn save_derived(
+        &mut self,
+        block: &arb_core::research::DerivedBlock,
+    ) -> Result<(), StoreError> {
+        let bytes = serde_json::to_vec(block)?;
+        if bytes.len() > 64 * 1024 * 1024
+            || block.batch.position != block.view.position
+            || block.view.pools.is_empty()
+            || block.batch.raw_refs.is_empty()
+        {
+            return Err(StoreError::Invalid("derived block scope or size"));
+        }
+        let tx = self.connection.transaction()?;
+        let _: Vec<u8> = tx.query_row(
+            "SELECT data FROM research_runs WHERE run_id=?1",
+            [&block.run_id],
+            |r| r.get(0),
+        )?;
+        for reference in &block.batch.raw_refs {
+            let bytes:Vec<u8>=tx.query_row("SELECT data FROM raw_records WHERE chain_id=?1 AND source=?2 AND run_id=?3 AND sequence=?4",params![block.view.pools[0].descriptor.id.chain_id.to_string(),reference.source,reference.run_id,reference.sequence.to_string()],|r|r.get(0))?;
+            let raw: RawRecord = serde_json::from_slice(&bytes)?;
+            if raw.position.as_ref().is_none_or(|p| {
+                p.block_hash != block.view.position.block_hash
+                    || p.block_number != block.view.position.block_number
+            }) {
+                return Err(StoreError::Invalid("raw provenance block mismatch"));
+            }
+        }
+        tx.execute(
+            "INSERT INTO derived_blocks(run_id,block_hash,block_number,data) VALUES(?1,?2,?3,?4)",
+            params![
+                block.run_id,
+                block.view.position.block_hash.to_string(),
+                block.view.position.block_number.to_string(),
+                bytes
+            ],
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+    pub fn find_derived(
+        &self,
+        run: &str,
+        hash: alloy_primitives::B256,
+    ) -> Result<Option<arb_core::research::DerivedBlock>, StoreError> {
+        let row:Option<(Vec<u8>,bool)>=self.connection.query_row("SELECT data,canonical FROM derived_blocks WHERE run_id=?1 AND block_hash=?2 AND length(data)<=67108864",params![run,hash.to_string()],|r|Ok((r.get(0)?,r.get(1)?))).optional()?;
+        row.map(|(bytes, canonical)| {
+            let mut block: arb_core::research::DerivedBlock = serde_json::from_slice(&bytes)?;
+            for candidate in &mut block.candidates {
+                candidate.canonical = canonical;
+            }
+            Ok(block)
+        })
+        .transpose()
     }
 }

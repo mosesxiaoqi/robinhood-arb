@@ -50,3 +50,27 @@ pub fn bootstrap() -> Bootstrap {
         }],
     }
 }
+#[allow(dead_code)]
+pub fn profitable_bootstrap() -> Bootstrap {
+    use alloy_primitives::address;
+    use arb_core::protocol::verified::sqrt_at_tick;
+    let mut b = bootstrap();
+    let p = &mut b.pools[0];
+    p.descriptor.protocol = "pons-v2-v4".into();
+    p.descriptor.hook = address!("E5e702641Ea86F4ae6cC3cDaeD2B886f976Be044");
+    p.descriptor.id.locator = PoolLocator::Singleton {
+        manager: address!("8366a39cc670b4001a1121b8f6a443a643e40951"),
+        pool_id: B256::repeat_byte(1),
+    };
+    p.tick = 4000;
+    p.sqrt_price_x96 = sqrt_at_tick(p.tick).unwrap();
+    let mut second = p.clone();
+    second.tick = 1000;
+    second.sqrt_price_x96 = sqrt_at_tick(second.tick).unwrap();
+    second.descriptor.id.locator = PoolLocator::Singleton {
+        manager: address!("8366a39cc670b4001a1121b8f6a443a643e40951"),
+        pool_id: B256::repeat_byte(2),
+    };
+    b.pools.push(second);
+    b
+}
