@@ -277,10 +277,10 @@ assert!(!unverified_pool.is_quoteable());
 
 **接口：** 定义 `Observation` 与协议领域事件；`decode(raw: &RawRecord, pool: &PoolDescriptor) -> Result<Vec<Observation>, DecodeError>`。
 
-- [ ] 编写 `decode_verified_event`：核对 T09 事件字段、原始引用与交易状态；错误 topic、截断 ABI、错误池地址不能转成有效状态更新。
-- [ ] 运行 `cargo test -p arb-adapters --test t11_decode` 确认失败。
-- [ ] 以已核验 ABI 解码，不在此处修改状态；Feed 没有回执时保持未知，失败交易不输出已生效的池更新。
-- [ ] 同一测试通过；未知事件可保留记录，但不伪造解码成功。
+- [x] 编写 `decode_verified_event`：核对 T09 事件字段、原始引用与交易状态；错误 topic、截断 ABI、错误池地址不能转成有效状态更新。
+- [x] 运行 `cargo test -p arb-adapters --test t11_decode` 确认失败。
+- [x] 以已核验 ABI 解码，不在此处修改状态；Feed 没有回执时保持未知，失败交易不输出已生效的池更新。
+- [x] 同一测试通过；未知事件可保留记录，但不伪造解码成功。
 
 ```rust
 assert_eq!(observation.raw_id, expected_raw_id);

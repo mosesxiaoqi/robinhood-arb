@@ -109,3 +109,44 @@ impl PoolDescriptor {
             && self.creator_tax_bps.is_some()
     }
 }
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RawRef {
+    pub source: String,
+    pub run_id: String,
+    pub sequence: u64,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PoolEvent {
+    Initialized {
+        sqrt_price_x96: alloy_primitives::U256,
+        tick: i32,
+    },
+    Swap {
+        amount0: i128,
+        amount1: i128,
+        sqrt_price_x96: alloy_primitives::U256,
+        liquidity: u128,
+        tick: i32,
+        lp_fee: u32,
+    },
+    LiquidityChanged {
+        lower: i32,
+        upper: i32,
+        delta: alloy_primitives::I256,
+    },
+    HookFee {
+        currency: alloy_primitives::Address,
+        fee: alloy_primitives::U256,
+        tax: alloy_primitives::U256,
+    },
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Observation {
+    pub raw_ref: RawRef,
+    pub pool: crate::route::PoolId,
+    pub position: ChainPosition,
+    pub transaction_hash: B256,
+    pub execution_status: ExecutionStatus,
+    pub event: PoolEvent,
+}
