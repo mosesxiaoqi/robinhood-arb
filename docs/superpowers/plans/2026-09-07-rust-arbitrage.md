@@ -132,10 +132,10 @@ assert!(Config::parse("queue_capacity = 0").is_err());
 
 **接口：** 定义 `RawRecord`、`ChainPosition`、`ExecutionStatus`、`Confirmation`；`RawRecord::validate(&self) -> Result<(), RecordError>`。
 
-- [ ] 编写 `preserve_unknown_and_position`：缺失回执、区块内位置与区块末位置往返序列化不失真；不允许负序号或超长载荷通过入口校验。
-- [ ] 运行 `cargo test -p arb-core --test t03_records` 确认失败。
-- [ ] 实现版本、网络、来源、原始字节、来源序号、UTC 接收时间和运行标识；区块/交易信息用可选字段表达。定义 `ExecutionStatus::{Unknown,Succeeded,Reverted}`，确认等级独立存储。
-- [ ] 同一测试通过，Feed 样例保持未知，不因存在交易哈希转为成功。
+- [x] 编写 `preserve_unknown_and_position`：缺失回执、区块内位置与区块末位置往返序列化不失真；不允许负序号或超长载荷通过入口校验。
+- [x] 运行 `cargo test -p arb-core --test t03_records` 确认失败。
+- [x] 实现版本、网络、来源、原始字节、来源序号、UTC 接收时间和运行标识；区块/交易信息用可选字段表达。定义 `ExecutionStatus::{Unknown,Succeeded,Reverted}`，确认等级独立存储。
+- [x] 同一测试通过，Feed 样例保持未知，不因存在交易哈希转为成功。
 
 ```rust
 assert_eq!(decoded.execution_status, ExecutionStatus::Unknown);

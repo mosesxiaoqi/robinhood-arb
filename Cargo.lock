@@ -74,6 +74,12 @@ dependencies = [
 [[package]]
 name = "arb-core"
 version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
 
 [[package]]
 name = "arb-research"
