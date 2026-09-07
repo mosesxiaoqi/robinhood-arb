@@ -20,6 +20,18 @@
     },
     "reverse-expected.json": {
       "sha256": "ff77dfed6dd213d7c96c7b12af249a034abeb0491b499145118f53330372a0df"
+    },
+    "simulation-capabilities.json": {
+      "sha256": "cb7e37dff291040fb77ba8a39e9a399f80cbc8ce7e3cbdd2265df887acdca0ef"
+    },
+    "simulation-local-fork.json": {
+      "sha256": "36a8398c67020c60c04e8e894ef85f6eff592cb81f0322bae38808a3a00b9c2a"
+    },
+    "atomic-simulation.json": {
+      "sha256": "506af3a09d521f56d40c7a6d742e99d1c34593e31120e979ec512d77459ec67c"
+    },
+    "atomic-expected.json": {
+      "sha256": "f6ee3fa71e47242caab53b7e4b08431c581a5e9e62eb574e98edeb3e2faf43ab"
     }
   },
   "source_rules": "All observations are actual public RPC responses. Expected values checked against receipt events. No fabricated pool or successful transaction."
