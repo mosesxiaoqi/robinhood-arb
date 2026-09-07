@@ -558,10 +558,12 @@ assert_eq!(missing_sequence, Some(11));
 
 **接口：** 定义 `OpportunitySummary`；`summarize_opportunities(records: &[Opportunity]) -> Vec<OpportunitySummary>`，按网络、路线和报价资产分组。
 
-- [ ] 编写 `gap_splits_opportunity_window`：连续有效两块合并；中间缺口/未知/孤块切断；不同报价资产不相加。
-- [ ] 运行 `cargo test -p arb-research --test t26_opportunities` 确认失败。
-- [ ] 输出区块粒度持续区间、数据覆盖、排除原因和最大已测试有效金额；分别给出报价候选与模拟验证容量，不把模拟未知的金额称已验证。
-- [ ] 同一测试通过；全程没有盈利时仍返回覆盖及零机会报告，失败币不能从分母消失。
+实现补充：接口接收 `DerivedBlock`、`SimulationRecord` 及显式起止区块；仅有 Opportunity 无法保留零机会、失败池或数据覆盖分母。限制 10,000 区块窗口，按运行/网络/路线/报价资产分组；容量为最大已测试有效金额，非插值估计或可成交保证。模拟容量要求原位置、报价输出及有效候选关联一致，仍沿用候选成本口径。
+
+- [x] 编写 `gap_splits_opportunity_window`：连续有效两块合并；中间缺口/未知/孤块切断；不同报价资产不相加。
+- [x] 运行 `cargo test -p arb-research --test t26_opportunities` 确认失败。
+- [x] 输出区块粒度持续区间、数据覆盖、排除原因和最大已测试有效金额；分别给出报价候选与模拟验证容量，不把模拟未知的金额称已验证。
+- [x] 同一测试通过；全程没有盈利时仍返回覆盖及零机会报告，失败币不能从分母消失。
 
 ```rust
 assert_eq!(windows.len(), 2);

@@ -175,7 +175,10 @@ dependencies = [
 name = "arb-research"
 version = "0.1.0"
 dependencies = [
+ "alloy-primitives",
  "arb-core",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
