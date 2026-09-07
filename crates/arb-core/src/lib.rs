@@ -7,3 +7,5 @@ pub mod research;
 pub mod route;
 pub mod simulation;
 pub mod state;
+
+pub mod wallet;

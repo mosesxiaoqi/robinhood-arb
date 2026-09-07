@@ -10,3 +10,5 @@ pub mod decode;
 pub mod simulation;
 
 pub mod feed;
+
+pub mod wallet;

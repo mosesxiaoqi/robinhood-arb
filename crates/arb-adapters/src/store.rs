@@ -34,6 +34,7 @@ impl Store {
             include_str!("migrations/008.sql"),
             include_str!("migrations/009.sql"),
             include_str!("migrations/010.sql"),
+            include_str!("migrations/011.sql"),
         ];
         if version as usize > migrations.len() {
             return Err(StoreError::Invalid("unsupported database version"));
@@ -736,5 +737,25 @@ impl Store {
         tx.execute("INSERT INTO feed_cursors(chain_id,next_frame,next_sequence) VALUES(?1,?2,?3) ON CONFLICT(chain_id) DO UPDATE SET next_frame=excluded.next_frame,next_sequence=excluded.next_sequence",params![chain,frame.checked_add(1).ok_or(StoreError::Invalid("feed frame overflow"))?.to_string(),next.map(|n|n.to_string())])?;
         tx.commit()?;
         Ok(result)
+    }
+}
+
+impl Store {
+    pub fn save_wallet_facts(
+        &mut self,
+        run: &str,
+        facts: &arb_core::wallet::WalletFacts,
+    ) -> Result<(), StoreError> {
+        self.load_run(run)?;
+        let bytes = serde_json::to_vec(facts)?;
+        if bytes.len() > 67108864
+            || facts.evidence.is_empty()
+            || facts.chain_id == 0
+            || facts.transaction_hash == alloy_primitives::B256::ZERO
+        {
+            return Err(StoreError::Invalid("wallet evidence budget/scope"));
+        }
+        self.connection.execute("INSERT INTO wallet_facts(run_id,transaction_hash,wallet,block_hash,data) VALUES(?1,?2,?3,?4,?5) ON CONFLICT(run_id,transaction_hash,wallet,block_hash) DO NOTHING",params![run,facts.transaction_hash.to_string(),facts.wallet.to_string(),facts.position.block_hash.to_string(),bytes])?;
+        Ok(())
     }
 }

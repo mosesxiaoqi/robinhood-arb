@@ -578,10 +578,12 @@ assert_eq!(sampled_capacity, largest_eligible_tested_amount);
 
 **接口：** 定义 `WalletFacts`、`WalletAttribution`；`attribute(facts: &WalletFacts) -> WalletAttribution`；事实保留哈希、资产变化、费用与证据完整性。
 
-- [ ] 编写 `do_not_treat_transfer_as_profit`：赠币、转账、LP、路由器、多腿套利、方向成交各有样例；证据不足必须未知。
-- [ ] 运行 `cargo test -p arb-research --test t27_wallets` 确认失败。
-- [ ] 从交易/回执和所需余额差提取事实，内部原生币变化缺 trace 等证据时标记不完整；按证据标记参与角色，不能简单把发送者或收款路由器当作交易者。
-- [ ] 同一测试通过；资产数量变化与统一计价损益分开，没有估值与入出金依据时不输出确定净利润。
+实现口径：RPC 捕获交易/回执、相邻块余额及首尾哈希核对；相邻块余额不等于单笔交易余额，缺 trace 标记不完整。角色只标发送者、合约收款方及转账端点，活动标签描述整笔交易的已识别池事件，不推断套利受益人。完整估值与入出金依据仅支持调整后的净资产变化；缺少成本基础时 realized_profit 始终未知。
+
+- [x] 编写 `do_not_treat_transfer_as_profit`：赠币、转账、LP、路由器、多腿套利、方向成交各有样例；证据不足必须未知。
+- [x] 运行 `cargo test -p arb-research --test t27_wallets` 确认失败。
+- [x] 从交易/回执和所需余额差提取事实，内部原生币变化缺 trace 等证据时标记不完整；按证据标记参与角色，不能简单把发送者或收款路由器当作交易者。
+- [x] 同一测试通过；资产数量变化与统一计价损益分开，没有估值与入出金依据时不输出确定净利润。
 
 ```rust
 assert_eq!(gift_attribution.realized_profit, None);
