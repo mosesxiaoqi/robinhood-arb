@@ -33,11 +33,11 @@ fn restore_checkpoint_exactly() {
         .query_row("SELECT count(*) FROM checkpoints", [], |r| r.get(0))
         .unwrap();
     assert_eq!(count, 1);
-    let mut unknown = saved.clone();
-    unknown.version = 999;
+    sql.execute_batch("PRAGMA ignore_check_constraints=ON")
+        .unwrap();
     sql.execute(
-        "UPDATE checkpoints SET data=?1 WHERE id=?2",
-        rusqlite::params![serde_json::to_vec(&unknown).unwrap(), id as i64],
+        "UPDATE checkpoints SET version=?1 WHERE id=?2",
+        rusqlite::params![999, id as i64],
     )
     .unwrap();
     assert!(store.load_checkpoint(id).is_err());

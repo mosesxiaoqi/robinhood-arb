@@ -48,14 +48,10 @@ fn paginate_without_skip() {
         3
     );
     assert!(store.read_raw_after(0, 1001).is_err());
-    let mut value = serde_json::to_value(&first[0].record).unwrap();
-    value["version"] = 2.into();
-    Connection::open(&path)
-        .unwrap()
-        .execute(
-            "UPDATE raw_records SET data=?1 WHERE id=1",
-            params![serde_json::to_vec(&value).unwrap()],
-        )
+    let sql = Connection::open(&path).unwrap();
+    sql.execute_batch("PRAGMA ignore_check_constraints=ON")
+        .unwrap();
+    sql.execute("UPDATE raw_records SET version=?1 WHERE id=1", params![2])
         .unwrap();
     assert!(store.read_raw_after(0, 2).is_err());
 }

@@ -88,7 +88,9 @@ fn report_preserves_unknown_and_coverage() {
     );
     assert_eq!(std::fs::read(&file_parent).unwrap(), b"existing");
     let sql = rusqlite::Connection::open(&database).unwrap();
-    sql.execute_batch("WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<100001) INSERT INTO wallet_facts(run_id,transaction_hash,wallet,block_hash,data) SELECT 'zero,' || char(34) || 'quoted' || char(34),CAST(x AS TEXT),'fixture','old',CAST('{\"position\":{\"block_number\":1}}' AS BLOB) FROM n;").unwrap();
+    sql.execute("WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<100001)
+        INSERT INTO wallet_facts(run_id,chain_id,block_number,block_hash,offset_kind,transaction_hash,wallet,sender,wallet_is_contract,execution_status,changes_json,transfers_json,swap_count,liquidity_count,balance_scope,receipt_complete,transaction_balances_complete,evidence_json)
+        SELECT ?1,4663,1,printf('0x%064x',1),'BlockEnd',printf('0x%064x',x),printf('0x%040x',1),printf('0x%040x',1),0,'Unknown','[]','[]',0,0,'BlockBoundary',0,0,'[]' FROM n", [&run.run_id]).unwrap();
     export_report(
         &database,
         &run.run_id,
@@ -97,7 +99,17 @@ fn report_preserves_unknown_and_coverage() {
     )
     .unwrap();
     store
-        .begin_recovery(B256::repeat_byte(8), &run.run_id, b"pending", &[])
+        .begin_recovery(
+            B256::repeat_byte(8),
+            &run.run_id,
+            &serde_json::to_vec(&serde_json::json!({
+                "id": B256::repeat_byte(8), "run_id":run.run_id,"checkpoint_id":0,
+                "common_ancestor":{"block_number":0,"block_hash":B256::ZERO,"offset":"BlockEnd"},
+                "required_fetch":null,"orphan_hashes":[],"replay_blocks":[]
+            }))
+            .unwrap(),
+            &[],
+        )
         .unwrap();
     let blocked = dir.path().join("blocked");
     assert!(export_report(&database, &run.run_id, &blocked, None).is_err());

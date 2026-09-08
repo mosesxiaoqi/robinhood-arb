@@ -1,3 +1,6 @@
+-- schema: v000 -> v001
+-- 当前完整结构：../schema/schema_v015.sql（v15）
+
 CREATE TABLE raw_records (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     chain_id TEXT NOT NULL,

@@ -102,7 +102,7 @@ fn reorg_matches_clean_branch() {
     assert_eq!(plan.common_ancestor.block_number, 1);
     assert_eq!(plan.orphan_hashes, vec![B256::repeat_byte(2)]);
     let sql = rusqlite::Connection::open(&path).unwrap();
-    sql.execute_batch("CREATE TRIGGER interrupt_recovery BEFORE INSERT ON derived_blocks WHEN NEW.block_number='3' BEGIN SELECT RAISE(ABORT,'interrupted recovery'); END;").unwrap();
+    sql.execute_batch("CREATE TRIGGER interrupt_recovery BEFORE INSERT ON derived_blocks WHEN NEW.block_number=3 BEGIN SELECT RAISE(ABORT,'interrupted recovery'); END;").unwrap();
     assert!(
         plan.execute(&mut live)
             .unwrap_err()

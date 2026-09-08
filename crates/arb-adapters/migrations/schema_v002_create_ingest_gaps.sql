@@ -1,3 +1,6 @@
+-- schema: v001 -> v002
+-- 当前完整结构：../schema/schema_v015.sql（v15）
+
 CREATE TABLE ingest_gaps (
     chain_id TEXT NOT NULL,
     source TEXT NOT NULL,

@@ -6,6 +6,8 @@
 
 技术方向：Rust 模块化单体。模块边界、数据契约和运行流程见 [架构设计](docs/architecture.md)。
 
+当前数据库完整结构为 [schema_v015.sql（v15）](crates/arb-adapters/schema/schema_v015.sql)，包含全部表、索引和约束，可用于空数据库初始化。历史升级脚本位于 [migrations](crates/arb-adapters/migrations)，按 `schema_v版本号_变更说明.sql` 命名，文件头注明起止版本和完整结构路径；已有数据库由 `Store::open` 自动按版本升级。 表用途、保留 JSON 的范围及 Rust 模型映射见 [数据库说明](docs/database.md)。
+
 实现顺序、最小任务、依赖和验收标准见 [实现计划](docs/superpowers/plans/2026-09-07-rust-arbitrage.md)。任务勾选记录实际进度。
 
 已确认套利范围：同一代币、两个不同池、同一报价资产的双腿闭环；路线数据结构可表达多腿，暂不实现通用多跳搜索。

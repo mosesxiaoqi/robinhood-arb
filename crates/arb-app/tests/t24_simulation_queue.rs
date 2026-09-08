@@ -195,11 +195,27 @@ async fn timeout_does_not_block_state() {
             .unwrap()
             .validates_original_candidate
     );
+    let recovery_bytes = |id, orphan_hashes| {
+        serde_json::to_vec(&arb_app::recovery::RecoveryPlan {
+            id,
+            run_id: "live".into(),
+            checkpoint_id: 0,
+            common_ancestor: arb_core::types::ChainPosition {
+                block_number: 1,
+                block_hash: B256::repeat_byte(1),
+                offset: arb_core::types::Offset::BlockEnd,
+            },
+            required_fetch: None,
+            orphan_hashes,
+            replay_blocks: vec![],
+        })
+        .unwrap()
+    };
     store
         .begin_recovery(
             B256::repeat_byte(90),
             "live",
-            b"test",
+            &recovery_bytes(B256::repeat_byte(90), vec![B256::repeat_byte(2)]),
             &[B256::repeat_byte(2)],
         )
         .unwrap();
@@ -218,7 +234,7 @@ async fn timeout_does_not_block_state() {
     // A later reorg can restore this exact block and its original simulation.
     let recovery = B256::repeat_byte(91);
     store
-        .begin_recovery(recovery, "live", b"return", &[])
+        .begin_recovery(recovery, "live", &recovery_bytes(recovery, vec![]), &[])
         .unwrap();
     store
         .reactivate_derived("live", B256::repeat_byte(2))

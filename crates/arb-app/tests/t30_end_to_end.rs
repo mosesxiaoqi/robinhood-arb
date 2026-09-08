@@ -302,12 +302,18 @@ fn shallow_recovery_uses_recent_checkpoint_in_long_history() {
         };
         // Synthetic metadata history isolates checkpoint selection; no live-chain evidence claim.
         tx.execute(
-            "INSERT INTO derived_blocks(run_id,block_hash,block_number,data) VALUES(?1,?2,?3,?4)",
+            "INSERT INTO derived_blocks(run_id,block_hash,block_number,view_id,parent_hash,excluded_pools,covered_pools_json,observations_json,raw_refs_json,pools_json,view_raw_refs_json,candidates_json,exclusions_json,timings_json) VALUES(?1,?2,?3,?4,?5,0,?6,?7,?8,?9,?10,'[]','[]','[]')",
             rusqlite::params![
                 run.run_id,
                 hash.to_string(),
-                n.to_string(),
-                serde_json::to_vec(&block).unwrap()
+                n as i64,
+                block.view_id.to_string(),
+                block.batch.parent_hash.to_string(),
+                serde_json::to_string(&block.batch.covered_pools).unwrap(),
+                serde_json::to_string(&block.batch.observations).unwrap(),
+                serde_json::to_string(&block.batch.raw_refs).unwrap(),
+                serde_json::to_string(&block.view.pools).unwrap(),
+                serde_json::to_string(&block.view.raw_refs).unwrap()
             ],
         )
         .unwrap();
